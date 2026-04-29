@@ -2,60 +2,109 @@ package minio
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
-// Client wraps the minio.Client with common operations.
+// Client wraps the minio.Client with multi-bucket support.
 type Client struct {
 	client *minio.Client
-	bucket string
 }
 
 // NewMinioClient creates a new Minio client with the given configuration.
-func NewMinioClient(endpoint, accessKey, secretKey string, useSSL bool, bucket string) (*Client, error) {
+// Unlike the previous version, this client can work with multiple buckets.
+func NewMinioClient(endpoint, accessKey, secretKey string, useSSL bool) (*Client, error) {
 	minioClient, err := minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKey, secretKey, ""),
 		Secure: useSSL,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create minio client: %w", err)
 	}
 
 	return &Client{
 		client: minioClient,
-		bucket: bucket,
 	}, nil
 }
 
-// PutObject uploads an object to the Minio bucket.
-func (c *Client) PutObject(ctx context.Context, objectName string, reader io.Reader, objectSize int64, opts minio.PutObjectOptions) (minio.UploadInfo, error) {
-	return c.client.PutObject(ctx, c.bucket, objectName, reader, objectSize, opts)
+// PutObject uploads an object to the specified Minio bucket.
+func (c *Client) PutObject(ctx context.Context, bucket, objectName string, reader io.Reader, objectSize int64, opts minio.PutObjectOptions) (minio.UploadInfo, error) {
+	if err := validateBucketName(bucket); err != nil {
+		return minio.UploadInfo{}, err
+	}
+	return c.client.PutObject(ctx, bucket, objectName, reader, objectSize, opts)
 }
 
-// GetObject downloads an object from the Minio bucket.
-func (c *Client) GetObject(ctx context.Context, objectName string, opts minio.GetObjectOptions) (*minio.Object, error) {
-	return c.client.GetObject(ctx, c.bucket, objectName, opts)
+// GetObject downloads an object from the specified Minio bucket.
+func (c *Client) GetObject(ctx context.Context, bucket, objectName string, opts minio.GetObjectOptions) (io.ReadCloser, error) {
+	if err := validateBucketName(bucket); err != nil {
+		return nil, err
+	}
+	obj, err := c.client.GetObject(ctx, bucket, objectName, opts)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
 }
 
-// ListObjects lists objects in the Minio bucket.
-func (c *Client) ListObjects(ctx context.Context, opts minio.ListObjectsOptions) <-chan minio.ObjectInfo {
-	return c.client.ListObjects(ctx, c.bucket, opts)
+// ListObjects lists objects in the specified Minio bucket.
+func (c *Client) ListObjects(ctx context.Context, bucket string, opts minio.ListObjectsOptions) <-chan minio.ObjectInfo {
+	if err := validateBucketName(bucket); err != nil {
+		// Return empty channel if bucket is invalid
+		ch := make(chan minio.ObjectInfo)
+		close(ch)
+		return ch
+	}
+	return c.client.ListObjects(ctx, bucket, opts)
 }
 
-// RemoveObject deletes an object from the Minio bucket.
-func (c *Client) RemoveObject(ctx context.Context, objectName string, opts minio.RemoveObjectOptions) error {
-	return c.client.RemoveObject(ctx, c.bucket, objectName, opts)
+// RemoveObject deletes an object from the specified Minio bucket.
+func (c *Client) RemoveObject(ctx context.Context, bucket, objectName string, opts minio.RemoveObjectOptions) error {
+	if err := validateBucketName(bucket); err != nil {
+		return err
+	}
+	return c.client.RemoveObject(ctx, bucket, objectName, opts)
 }
 
 // BucketExists checks if the bucket exists.
-func (c *Client) BucketExists(ctx context.Context) (bool, error) {
-	return c.client.BucketExists(ctx, c.bucket)
+func (c *Client) BucketExists(ctx context.Context, bucket string) (bool, error) {
+	if err := validateBucketName(bucket); err != nil {
+		return false, err
+	}
+	return c.client.BucketExists(ctx, bucket)
 }
 
-// Bucket returns the configured bucket name.
-func (c *Client) Bucket() string {
-	return c.bucket
+// CreateBucket creates a new bucket in Minio.
+func (c *Client) CreateBucket(ctx context.Context, bucket string, region string) error {
+	if err := validateBucketName(bucket); err != nil {
+		return err
+	}
+	return c.client.MakeBucket(ctx, bucket, minio.MakeBucketOptions{Region: region})
+}
+
+// DeleteBucket removes a bucket from Minio (must be empty).
+func (c *Client) DeleteBucket(ctx context.Context, bucket string) error {
+	if err := validateBucketName(bucket); err != nil {
+		return err
+	}
+	return c.client.RemoveBucket(ctx, bucket)
+}
+
+// HeadObject returns metadata about an object without downloading it.
+func (c *Client) HeadObject(ctx context.Context, bucket, objectName string, opts minio.StatObjectOptions) (minio.ObjectInfo, error) {
+	if err := validateBucketName(bucket); err != nil {
+		return minio.ObjectInfo{}, err
+	}
+	return c.client.StatObject(ctx, bucket, objectName, opts)
+}
+
+// validateBucketName ensures bucket name is not empty.
+func validateBucketName(bucket string) error {
+	if bucket == "" {
+		return fmt.Errorf("bucket name cannot be empty")
+	}
+	return nil
 }

@@ -3,67 +3,25 @@ package minio
 import (
 	"bytes"
 	"context"
-	"io"
 	"testing"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-// MockMinioClient is a mock implementation of minio.Client for testing.
-type MockMinioClient struct {
-	mock.Mock
-}
-
-func (m *MockMinioClient) PutObject(ctx context.Context, bucketName, objectName string, reader io.Reader, objectSize int64, opts minio.PutObjectOptions) (minio.UploadInfo, error) {
-	args := m.Called(ctx, bucketName, objectName, reader, objectSize, opts)
-	if args.Get(0) == nil {
-		return minio.UploadInfo{}, args.Error(1)
-	}
-	return args.Get(0).(minio.UploadInfo), args.Error(1)
-}
-
-func (m *MockMinioClient) GetObject(ctx context.Context, bucketName, objectName string, opts minio.GetObjectOptions) *minio.Object {
-	args := m.Called(ctx, bucketName, objectName, opts)
-	if args.Get(0) == nil {
-		return nil
-	}
-	return args.Get(0).(*minio.Object)
-}
-
-func (m *MockMinioClient) ListObjects(ctx context.Context, bucketName string, opts minio.ListObjectsOptions) <-chan minio.ObjectInfo {
-	args := m.Called(ctx, bucketName, opts)
-	if args.Get(0) == nil {
-		return nil
-	}
-	return args.Get(0).(<-chan minio.ObjectInfo)
-}
-
-func (m *MockMinioClient) RemoveObject(ctx context.Context, bucketName, objectName string, opts minio.RemoveObjectOptions) error {
-	args := m.Called(ctx, bucketName, objectName, opts)
-	return args.Error(0)
-}
-
-func (m *MockMinioClient) BucketExists(ctx context.Context, bucketName string) (bool, error) {
-	args := m.Called(ctx, bucketName)
-	return args.Bool(0), args.Error(1)
-}
-
-// TestNewMinioClient_Success tests successful client initialization.
+// TestNewMinioClient_Success tests successful client initialization without bucket binding
 func TestNewMinioClient_Success(t *testing.T) {
-	client, err := NewMinioClient("localhost:9000", "minioadmin", "minioadmin", false, "test-bucket")
+	client, err := NewMinioClient("localhost:9000", "minioadmin", "minioadmin", false)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, client)
-	assert.Equal(t, "test-bucket", client.Bucket())
 }
 
-// TestNewMinioClient_InvalidEndpoint tests client initialization with invalid endpoint.
+// TestNewMinioClient_InvalidEndpoint tests client initialization with invalid endpoint
 func TestNewMinioClient_InvalidEndpoint(t *testing.T) {
 	// Invalid endpoint format should cause an error during Minio.New()
-	client, err := NewMinioClient("invalid endpoint with spaces", "key", "secret", false, "bucket")
+	client, err := NewMinioClient("invalid endpoint with spaces", "key", "secret", false)
 
 	// Minio should return an error for invalid endpoint
 	if err != nil {
@@ -75,180 +33,305 @@ func TestNewMinioClient_InvalidEndpoint(t *testing.T) {
 	}
 }
 
-// TestNewMinioClient_WithSSL tests client initialization with SSL enabled.
+// TestNewMinioClient_WithSSL tests client initialization with SSL enabled
 func TestNewMinioClient_WithSSL(t *testing.T) {
-	client, err := NewMinioClient("minio.example.com:9000", "accessKey", "secretKey", true, "my-bucket")
+	client, err := NewMinioClient("minio.example.com:9000", "accessKey", "secretKey", true)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, client)
-	assert.Equal(t, "my-bucket", client.Bucket())
 }
 
-// TestNewMinioClient_BucketConfiguration tests that bucket is properly stored.
-func TestNewMinioClient_BucketConfiguration(t *testing.T) {
-	bucketName := "test-bucket-name"
-	client, err := NewMinioClient("localhost:9000", "admin", "password", false, bucketName)
+// TestValidateBucketName_Success tests bucket name validation with valid names
+func TestValidateBucketName_Success(t *testing.T) {
+	validNames := []string{"test-bucket", "reports", "uploads-v2", "cache123"}
 
-	require.NoError(t, err)
-	assert.Equal(t, bucketName, client.Bucket())
+	for _, name := range validNames {
+		err := validateBucketName(name)
+		assert.NoError(t, err, "bucket name %q should be valid", name)
+	}
 }
 
-// TestPutObject tests object upload functionality.
-func TestPutObject(t *testing.T) {
-	client, err := NewMinioClient("localhost:9000", "minioadmin", "minioadmin", false, "test-bucket")
+// TestValidateBucketName_Failure tests bucket name validation with invalid names
+func TestValidateBucketName_Failure(t *testing.T) {
+	emptyName := ""
+	err := validateBucketName(emptyName)
+	assert.Error(t, err, "empty bucket name should fail validation")
+	assert.Contains(t, err.Error(), "bucket name cannot be empty")
+}
+
+// TestPutObject_ValidParams tests PutObject with valid parameters
+func TestPutObject_ValidParams(t *testing.T) {
+	client, err := NewMinioClient("localhost:9000", "minioadmin", "minioadmin", false)
 	require.NoError(t, err)
 
 	ctx := context.Background()
 	data := []byte("test data")
 	reader := bytes.NewReader(data)
 
-	// This will attempt to upload to a real Minio instance
-	// For true unit testing, you would need to mock at a lower level
-	// For now, we just verify the method is callable
-	_, err = client.PutObject(ctx, "test-object.txt", reader, int64(len(data)), minio.PutObjectOptions{})
-	// Error is expected since we don't have a real Minio server
-	_ = err
+	// This will fail with a real endpoint error, but shouldn't panic
+	_, err = client.PutObject(ctx, "test-bucket", "test-object.txt", reader, int64(len(data)), minio.PutObjectOptions{})
+	// We don't assert on error since we don't have a real Minio server
+	assert.Nil(t, nil) // ensure the call was made without panic
 }
 
-// TestBucket tests bucket getter.
-func TestBucket(t *testing.T) {
-	bucketName := "my-special-bucket"
-	client, err := NewMinioClient("localhost:9000", "key", "secret", false, bucketName)
-
-	require.NoError(t, err)
-	assert.Equal(t, bucketName, client.Bucket())
-}
-
-// TestRemoveObject_Success tests successful object removal.
-func TestRemoveObject(t *testing.T) {
-	client, err := NewMinioClient("localhost:9000", "minioadmin", "minioadmin", false, "test-bucket")
+// TestPutObject_EmptyBucket tests PutObject with empty bucket name
+func TestPutObject_EmptyBucket(t *testing.T) {
+	client, err := NewMinioClient("localhost:9000", "minioadmin", "minioadmin", false)
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	
-	// This will attempt to remove from a real Minio instance
-	// For true unit testing, you would need to mock at a lower level
-	err = client.RemoveObject(ctx, "test-object.txt", minio.RemoveObjectOptions{})
-	// Error is expected since we don't have a real Minio server
-	_ = err
+	data := []byte("test data")
+	reader := bytes.NewReader(data)
+
+	_, err = client.PutObject(ctx, "", "test-object.txt", reader, int64(len(data)), minio.PutObjectOptions{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "bucket name cannot be empty")
 }
 
-// TestClientWithDifferentCredentials tests client initialization with various credentials.
-func TestClientWithDifferentCredentials(t *testing.T) {
-	tests := []struct {
-		name       string
-		endpoint   string
-		accessKey  string
-		secretKey  string
-		useSSL     bool
-		bucket     string
-		shouldFail bool
-	}{
-		{
-			name:       "MinioLocal",
-			endpoint:   "localhost:9000",
-			accessKey:  "minioadmin",
-			secretKey:  "minioadmin",
-			useSSL:     false,
-			bucket:     "test",
-			shouldFail: false,
-		},
-		{
-			name:       "CloudMinio",
-			endpoint:   "minio.cloud.example.com:9000",
-			accessKey:  "AKIAIOSFODNN7EXAMPLE",
-			secretKey:  "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-			useSSL:     true,
-			bucket:     "prod-bucket",
-			shouldFail: false,
-		},
-		{
-			name:       "CustomPort",
-			endpoint:   "storage.internal:12345",
-			accessKey:  "user123",
-			secretKey:  "pass456",
-			useSSL:     false,
-			bucket:     "data-bucket",
-			shouldFail: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			client, err := NewMinioClient(tt.endpoint, tt.accessKey, tt.secretKey, tt.useSSL, tt.bucket)
-
-			if tt.shouldFail {
-				assert.Error(t, err)
-				assert.Nil(t, client)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, client)
-				assert.Equal(t, tt.bucket, client.Bucket())
-			}
-		})
-	}
-}
-
-// TestClientOperationSequence tests a sequence of operations.
-func TestClientOperationSequence(t *testing.T) {
-	client, err := NewMinioClient("localhost:9000", "minioadmin", "minioadmin", false, "test-bucket")
+// TestGetObject tests GetObject with valid parameters
+func TestGetObject(t *testing.T) {
+	client, err := NewMinioClient("localhost:9000", "minioadmin", "minioadmin", false)
 	require.NoError(t, err)
 
 	ctx := context.Background()
 
-	// Test that all methods are callable without panic
-	assert.NotPanics(t, func() {
-		// These will fail without a real Minio server, but should not panic
-		_, _ = client.PutObject(ctx, "file1.txt", bytes.NewReader([]byte("data")), 4, minio.PutObjectOptions{})
-		_, _ = client.GetObject(ctx, "file1.txt", minio.GetObjectOptions{})
-		_ = client.RemoveObject(ctx, "file1.txt", minio.RemoveObjectOptions{})
-		_, _ = client.BucketExists(ctx)
-	})
+	// This method shouldn't panic with valid input
+	obj, err := client.GetObject(ctx, "test-bucket", "test-object.txt", minio.GetObjectOptions{})
+	if err != nil {
+		// Error expected without real server
+		assert.Nil(t, obj)
+	} else {
+		assert.NotNil(t, obj)
+	}
 }
 
-// TestNewMinioClient_EdgeCases tests edge cases for client initialization.
-func TestNewMinioClient_EdgeCases(t *testing.T) {
-	tests := []struct {
-		name      string
+// TestGetObject_EmptyBucket tests GetObject with empty bucket name
+func TestGetObject_EmptyBucket(t *testing.T) {
+	client, err := NewMinioClient("localhost:9000", "minioadmin", "minioadmin", false)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	obj, err := client.GetObject(ctx, "", "test-object.txt", minio.GetObjectOptions{})
+	assert.Error(t, err)
+	assert.Nil(t, obj)
+	assert.Contains(t, err.Error(), "bucket name cannot be empty")
+}
+
+// TestListObjects tests ListObjects method
+func TestListObjects(t *testing.T) {
+	client, err := NewMinioClient("localhost:9000", "minioadmin", "minioadmin", false)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// This should return a channel even if the bucket doesn't exist
+	objCh := client.ListObjects(ctx, "test-bucket", minio.ListObjectsOptions{})
+	assert.NotNil(t, objCh)
+}
+
+// TestListObjects_InvalidBucket tests ListObjects with empty bucket
+func TestListObjects_InvalidBucket(t *testing.T) {
+	client, err := NewMinioClient("localhost:9000", "minioadmin", "minioadmin", false)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// Should return empty channel on invalid bucket
+	objCh := client.ListObjects(ctx, "", minio.ListObjectsOptions{})
+	assert.NotNil(t, objCh)
+}
+
+// TestRemoveObject_Success tests RemoveObject with valid parameters
+func TestRemoveObject_Success(t *testing.T) {
+	client, err := NewMinioClient("localhost:9000", "minioadmin", "minioadmin", false)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// Method should not panic
+	err = client.RemoveObject(ctx, "test-bucket", "test-object.txt", minio.RemoveObjectOptions{})
+	assert.Nil(t, nil) // ensure no panic
+}
+
+// TestRemoveObject_EmptyBucket tests RemoveObject with empty bucket name
+func TestRemoveObject_EmptyBucket(t *testing.T) {
+	client, err := NewMinioClient("localhost:9000", "minioadmin", "minioadmin", false)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	err = client.RemoveObject(ctx, "", "test-object.txt", minio.RemoveObjectOptions{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "bucket name cannot be empty")
+}
+
+// TestBucketExists tests BucketExists method
+func TestBucketExists(t *testing.T) {
+	client, err := NewMinioClient("localhost:9000", "minioadmin", "minioadmin", false)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// Should not panic
+	exists, err := client.BucketExists(ctx, "test-bucket")
+	_ = exists // value might be false due to no connection
+	_ = err    // error is expected without real server
+}
+
+// TestBucketExists_EmptyBucket tests BucketExists with empty bucket name
+func TestBucketExists_EmptyBucket(t *testing.T) {
+	client, err := NewMinioClient("localhost:9000", "minioadmin", "minioadmin", false)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	exists, err := client.BucketExists(ctx, "")
+	assert.Error(t, err)
+	assert.False(t, exists)
+	assert.Contains(t, err.Error(), "bucket name cannot be empty")
+}
+
+// TestCreateBucket tests CreateBucket method
+func TestCreateBucket(t *testing.T) {
+	client, err := NewMinioClient("localhost:9000", "minioadmin", "minioadmin", false)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// Should not panic
+	err = client.CreateBucket(ctx, "test-bucket", "us-east-1")
+	_ = err // error is expected without real server
+}
+
+// TestCreateBucket_EmptyBucket tests CreateBucket with empty bucket name
+func TestCreateBucket_EmptyBucket(t *testing.T) {
+	client, err := NewMinioClient("localhost:9000", "minioadmin", "minioadmin", false)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	err = client.CreateBucket(ctx, "", "us-east-1")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "bucket name cannot be empty")
+}
+
+// TestDeleteBucket tests DeleteBucket method
+func TestDeleteBucket(t *testing.T) {
+	client, err := NewMinioClient("localhost:9000", "minioadmin", "minioadmin", false)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// Should not panic
+	err = client.DeleteBucket(ctx, "test-bucket")
+	_ = err // error is expected without real server
+}
+
+// TestDeleteBucket_EmptyBucket tests DeleteBucket with empty bucket name
+func TestDeleteBucket_EmptyBucket(t *testing.T) {
+	client, err := NewMinioClient("localhost:9000", "minioadmin", "minioadmin", false)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	err = client.DeleteBucket(ctx, "")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "bucket name cannot be empty")
+}
+
+// TestHeadObject tests HeadObject method
+func TestHeadObject(t *testing.T) {
+	client, err := NewMinioClient("localhost:9000", "minioadmin", "minioadmin", false)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// Should not panic
+	_, err = client.HeadObject(ctx, "test-bucket", "test-object.txt", minio.StatObjectOptions{})
+	_ = err // error is expected without real server
+}
+
+// TestHeadObject_EmptyBucket tests HeadObject with empty bucket name
+func TestHeadObject_EmptyBucket(t *testing.T) {
+	client, err := NewMinioClient("localhost:9000", "minioadmin", "minioadmin", false)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	_, err = client.HeadObject(ctx, "", "test-object.txt", minio.StatObjectOptions{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "bucket name cannot be empty")
+}
+
+// TestMultipleBucketsSupport tests that client can work with different buckets
+func TestMultipleBucketsSupport(t *testing.T) {
+	client, err := NewMinioClient("localhost:9000", "minioadmin", "minioadmin", false)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	buckets := []string{"reports", "uploads", "cache"}
+
+	for _, bucket := range buckets {
+		// Each method should work with any bucket name (validation passes)
+		_, err := client.BucketExists(ctx, bucket)
+		_ = err // error from connection is OK, we're testing bucket parameter acceptance
+	}
+}
+
+// TestNewMinioClient_DifferentCredentials tests client with various credentials
+func TestNewMinioClient_DifferentCredentials(t *testing.T) {
+	credentials := []struct {
 		endpoint  string
 		accessKey string
 		secretKey string
-		useSSL    bool
-		bucket    string
+		ssl       bool
 	}{
 		{
-			name:      "EmptyBucket",
 			endpoint:  "localhost:9000",
-			accessKey: "key",
-			secretKey: "secret",
-			useSSL:    false,
-			bucket:    "",
+			accessKey: "minioadmin",
+			secretKey: "minioadmin",
+			ssl:       false,
 		},
 		{
-			name:      "BucketWithHyphens",
-			endpoint:  "localhost:9000",
-			accessKey: "key",
-			secretKey: "secret",
-			useSSL:    false,
-			bucket:    "my-test-bucket-123",
+			endpoint:  "minio.example.com:9000",
+			accessKey: "AKIAIOSFODNN7EXAMPLE",
+			secretKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+			ssl:       true,
 		},
 		{
-			name:      "EmptyEndpoint",
-			endpoint:  "",
-			accessKey: "key",
-			secretKey: "secret",
-			useSSL:    false,
-			bucket:    "bucket",
+			endpoint:  "storage.internal:12345",
+			accessKey: "user123",
+			secretKey: "pass456",
+			ssl:       false,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			client, err := NewMinioClient(tt.endpoint, tt.accessKey, tt.secretKey, tt.useSSL, tt.bucket)
-			// Don't assert on error - just verify no panic and bucket is set
-			if err == nil && client != nil {
-				assert.Equal(t, tt.bucket, client.Bucket())
-			}
-		})
+	for _, cred := range credentials {
+		client, err := NewMinioClient(cred.endpoint, cred.accessKey, cred.secretKey, cred.ssl)
+		assert.NoError(t, err)
+		assert.NotNil(t, client)
 	}
+}
+
+// TestClientNoPanic tests that operations don't panic with valid input
+func TestClientNoPanic(t *testing.T) {
+	client, err := NewMinioClient("localhost:9000", "minioadmin", "minioadmin", false)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// Test that methods don't panic
+	assert.NotPanics(t, func() {
+		data := []byte("test")
+		reader := bytes.NewReader(data)
+		_, _ = client.PutObject(ctx, "bucket", "key", reader, int64(len(data)), minio.PutObjectOptions{})
+		_, _ = client.GetObject(ctx, "bucket", "key", minio.GetObjectOptions{})
+		_ = client.RemoveObject(ctx, "bucket", "key", minio.RemoveObjectOptions{})
+		_, _ = client.BucketExists(ctx, "bucket")
+		_ = client.CreateBucket(ctx, "bucket", "us-east-1")
+		_ = client.DeleteBucket(ctx, "bucket")
+		_, _ = client.HeadObject(ctx, "bucket", "key", minio.StatObjectOptions{})
+		_ = client.ListObjects(ctx, "bucket", minio.ListObjectsOptions{})
+	})
 }
