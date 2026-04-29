@@ -45,8 +45,8 @@ var (
 	ErrNotImplemented = NewError("This command is not implemented yet")
 	ErrBadRequest     = NewError("Invalid request format")
 	ErrNotFound       = NewError("Resource not found")
-	ErrUnauthorized   = NewError("You don't have permission to do this")
-	ErrServerError    = NewError("An internal server error occurred")
+	ErrForbidden      = NewError("You don't have permission to do this")
+	ErrInternal       = NewError("An internal server error occurred")
 	ErrGRPCError      = func(err error) *InteractionError {
 		return NewError(fmt.Sprintf("API error: %v", err))
 	}
