@@ -3,24 +3,81 @@ package minio
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
-// BucketType represents the type of storage bucket
+// BucketType represents the type of storage bucket based on file type
 type BucketType string
 
 const (
-	// BucketReports stores generated reports and documents
-	BucketReports BucketType = "reports"
-	// BucketUploads stores user-uploaded files
-	BucketUploads BucketType = "uploads"
-	// BucketCache stores temporary cache data
-	BucketCache BucketType = "cache"
+	// BucketVideo stores video files
+	BucketVideo BucketType = "video"
+	// BucketImage stores image files
+	BucketImage BucketType = "image"
+	// BucketAudio stores audio files
+	BucketAudio BucketType = "audio"
+	// BucketOthers stores other file types
+	BucketOthers BucketType = "others"
 )
+
+// FileTypeMap defines file extensions to bucket type mappings
+var FileTypeMap = map[string]BucketType{
+	// Video formats
+	".mp4":  BucketVideo,
+	".avi":  BucketVideo,
+	".mkv":  BucketVideo,
+	".mov":  BucketVideo,
+	".flv":  BucketVideo,
+	".wmv":  BucketVideo,
+	".webm": BucketVideo,
+	".3gp":  BucketVideo,
+	".m4v":  BucketVideo,
+
+	// Image formats
+	".jpg":  BucketImage,
+	".jpeg": BucketImage,
+	".png":  BucketImage,
+	".gif":  BucketImage,
+	".bmp":  BucketImage,
+	".svg":  BucketImage,
+	".webp": BucketImage,
+	".tiff": BucketImage,
+	".ico":  BucketImage,
+
+	// Audio formats
+	".mp3":  BucketAudio,
+	".wav":  BucketAudio,
+	".flac": BucketAudio,
+	".aac":  BucketAudio,
+	".m4a":  BucketAudio,
+	".aiff": BucketAudio,
+	".ogg":  BucketAudio,
+	".wma":  BucketAudio,
+}
+
+// GetBucketTypeFromFileName determines the bucket type based on file extension
+func GetBucketTypeFromFileName(fileName string) BucketType {
+	ext := strings.ToLower(strings.TrimSpace(fileName))
+
+	// Find the extension
+	dotIndex := strings.LastIndex(ext, ".")
+	if dotIndex == -1 {
+		return BucketOthers
+	}
+
+	fileExt := ext[dotIndex:]
+
+	if bucketType, exists := FileTypeMap[fileExt]; exists {
+		return bucketType
+	}
+
+	return BucketOthers
+}
 
 // BucketManager manages multiple buckets with type-based organization
 type BucketManager struct {
 	client *Client
-	prefix string // optional prefix for bucket names (e.g., "prod-", "staging-")
+	prefix string
 	region string
 }
 
@@ -42,7 +99,7 @@ func (m *BucketManager) GetBucketName(bucketType BucketType) string {
 func (m *BucketManager) EnsureBucketsExist(ctx context.Context, bucketTypes ...BucketType) error {
 	if len(bucketTypes) == 0 {
 		// Default buckets
-		bucketTypes = []BucketType{BucketReports, BucketUploads, BucketCache}
+		bucketTypes = []BucketType{BucketVideo, BucketImage, BucketAudio, BucketOthers}
 	}
 
 	for _, bType := range bucketTypes {
@@ -68,7 +125,7 @@ func (m *BucketManager) EnsureBucketsExist(ctx context.Context, bucketTypes ...B
 // GetBucketOrDefault returns the bucket name for a type, or a default bucket if the type is invalid
 func (m *BucketManager) GetBucketOrDefault(bucketType BucketType) string {
 	if bucketType == "" {
-		return m.GetBucketName(BucketUploads) // default
+		return m.GetBucketName(BucketOthers) // default
 	}
 	return m.GetBucketName(bucketType)
 }
@@ -76,9 +133,10 @@ func (m *BucketManager) GetBucketOrDefault(bucketType BucketType) string {
 // ListAllBuckets lists all managed buckets (returns only our managed buckets)
 func (m *BucketManager) ListAllBuckets(ctx context.Context) ([]string, error) {
 	buckets := []string{
-		m.GetBucketName(BucketReports),
-		m.GetBucketName(BucketUploads),
-		m.GetBucketName(BucketCache),
+		m.GetBucketName(BucketVideo),
+		m.GetBucketName(BucketImage),
+		m.GetBucketName(BucketAudio),
+		m.GetBucketName(BucketOthers),
 	}
 	return buckets, nil
 }
@@ -86,7 +144,7 @@ func (m *BucketManager) ListAllBuckets(ctx context.Context) ([]string, error) {
 // ValidateBucketType checks if a bucket type is valid
 func ValidateBucketType(bt BucketType) bool {
 	switch bt {
-	case BucketReports, BucketUploads, BucketCache:
+	case BucketVideo, BucketImage, BucketAudio, BucketOthers:
 		return true
 	default:
 		return false

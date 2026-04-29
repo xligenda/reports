@@ -33,7 +33,7 @@ func NewInitOptions() *InitOptions {
 		UseSSL:       getEnvBool("MINIO_USE_SSL", false),
 		BucketPrefix: getEnv("MINIO_BUCKET_PREFIX", ""),
 		Region:       getEnv("MINIO_REGION", "us-east-1"),
-		BucketTypes:  []BucketType{BucketReports, BucketUploads, BucketCache},
+		BucketTypes:  []BucketType{BucketVideo, BucketImage, BucketAudio, BucketOthers},
 	}
 }
 
