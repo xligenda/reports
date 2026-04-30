@@ -221,7 +221,7 @@ func TestGetBucketTypeFromFileName_Videos(t *testing.T) {
 	videoFiles := []string{"movie.mp4", "video.avi", "film.mkv", "clip.mov", "show.webm"}
 
 	for _, file := range videoFiles {
-		result := GetBucketTypeFromFileName(file)
+		result := BucketTypeFromFileName(file)
 		assert.Equal(t, BucketVideo, result, "file %q should be classified as video", file)
 	}
 }
@@ -231,7 +231,7 @@ func TestGetBucketTypeFromFileName_Images(t *testing.T) {
 	imageFiles := []string{"photo.jpg", "picture.jpeg", "image.png", "graphic.gif", "drawing.bmp", "logo.svg", "web.webp"}
 
 	for _, file := range imageFiles {
-		result := GetBucketTypeFromFileName(file)
+		result := BucketTypeFromFileName(file)
 		assert.Equal(t, BucketImage, result, "file %q should be classified as image", file)
 	}
 }
@@ -241,7 +241,7 @@ func TestGetBucketTypeFromFileName_Audio(t *testing.T) {
 	audioFiles := []string{"song.mp3", "music.wav", "track.flac", "podcast.aac", "voice.m4a", "sound.ogg"}
 
 	for _, file := range audioFiles {
-		result := GetBucketTypeFromFileName(file)
+		result := BucketTypeFromFileName(file)
 		assert.Equal(t, BucketAudio, result, "file %q should be classified as audio", file)
 	}
 }
@@ -251,7 +251,7 @@ func TestGetBucketTypeFromFileName_Others(t *testing.T) {
 	otherFiles := []string{"document.pdf", "spreadsheet.xlsx", "archive.zip", "script.py", "unknown.xyz", "noext"}
 
 	for _, file := range otherFiles {
-		result := GetBucketTypeFromFileName(file)
+		result := BucketTypeFromFileName(file)
 		assert.Equal(t, BucketOthers, result, "file %q should be classified as others", file)
 	}
 }
@@ -269,7 +269,7 @@ func TestGetBucketTypeFromFileName_CaseInsensitive(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		result := GetBucketTypeFromFileName(tc.fileName)
+		result := BucketTypeFromFileName(tc.fileName)
 		assert.Equal(t, tc.bucketType, result, "file %q should be classified as %q", tc.fileName, tc.bucketType)
 	}
 }

@@ -55,8 +55,7 @@ var FileTypeMap = map[string]BucketType{
 	".wma":  BucketAudio,
 }
 
-// GetBucketTypeFromFileName determines the bucket type based on file extension
-func GetBucketTypeFromFileName(fileName string) BucketType {
+func BucketTypeFromFileName(fileName string) BucketType {
 	ext := strings.ToLower(strings.TrimSpace(fileName))
 
 	// Find the extension

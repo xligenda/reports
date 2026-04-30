@@ -2,11 +2,17 @@ package report
 
 import (
 	"context"
+	"io"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/minio/minio-go/v7"
 	"github.com/xligenda/reports/internal/discord"
+	"github.com/xligenda/reports/internal/discord/hooks"
+	"github.com/xligenda/reports/internal/services/perms"
+	"github.com/xligenda/reports/internal/structs"
 	"github.com/xligenda/reports/pkg/kit"
 	"github.com/xligenda/reports/pkg/kit/options"
+	"github.com/xligenda/reports/pkg/repo"
 )
 
 type optName = string
@@ -27,18 +33,63 @@ var (
 	proof     optName = "proof"
 	proofLink optName = "proof_link"
 	user      optName = "user"
-	channelID optName = "channel_id"
+	channel   optName = "channel"
 	closed    optName = "closed"
 	page      optName = "page"
 )
 
-type ReportCommand struct {
-	*kit.EmptyCommand
+type PermsProvider interface {
+	Check(ctx context.Context, id string, action perms.Permission, stack string) (bool, error)
 }
 
-func NewReportCommand() *ReportCommand {
-	return &ReportCommand{}
+type ReportService interface {
+	Create(
+		ctx context.Context,
+		channelID, guildID, issuerID, topic string,
+		createdAt int64,
+		note, proof *string,
+	) (*structs.Report, error)
+	FindByID(ctx context.Context, id string) (*structs.Report, error)
+	FindAll(ctx context.Context, opts *repo.QueryOptions) ([]*structs.Report, error)
+	Search(ctx context.Context, filters []repo.Filter, opts *repo.QueryOptions) ([]*structs.Report, error)
+	FindPaginated(ctx context.Context, filters []repo.Filter, page, pageSize int, orderBy repo.OrderBy) ([]*structs.Report, int64, error)
+	Count(ctx context.Context, filters []repo.Filter) (int64, error)
+	Exists(ctx context.Context, filters []repo.Filter) (bool, error)
+	Delete(ctx context.Context, id string) error
+	Close(ctx context.Context, id string, closedByID string, closedAt int64) (*structs.Report, error)
 }
+
+type Storage interface {
+	PutObject(ctx context.Context, bucket, objectName string, reader io.Reader, objectSize int64, opts minio.PutObjectOptions) (minio.UploadInfo, error)
+	GetObject(ctx context.Context, bucket, objectName string, opts minio.GetObjectOptions) (io.ReadCloser, error)
+}
+
+type ReportCommand struct {
+	*kit.EmptyCommand
+	permsProvider PermsProvider
+	reports       ReportService
+	storage       Storage
+}
+
+func NewReportCommand(
+	permsProvider PermsProvider,
+	reportService ReportService,
+	storage Storage,
+) *ReportCommand {
+	return &ReportCommand{
+		permsProvider: permsProvider,
+		reports:       reportService,
+		storage:       storage,
+	}
+}
+
+func (c *ReportCommand) Hooks() []kit.Hook {
+	return []kit.Hook{
+		hooks.NewPermsHook(c.permsProvider, perms.None, nil),
+	}
+}
+
+func (c *ReportCommand) Scope() kit.Scope { return kit.ScopeGuild }
 
 func (*ReportCommand) Definition() *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
@@ -54,16 +105,16 @@ func (*ReportCommand) Definition() *discordgo.ApplicationCommand {
 			).Build(),
 			options.Sub(
 				close, "Закрыть обращение",
-				options.Channel(channelID, "Канал обращения").Types(discordgo.ChannelTypeGuildText),
+				options.Channel(channel, "Канал обращения").Types(discordgo.ChannelTypeGuildText),
 				options.String(note, "Заметка").MaxLength(800),
 			).Build(),
 			options.Sub(
 				delete, "Удалить обращение",
-				options.Channel(channelID, "Канал обращения").Types(discordgo.ChannelTypeGuildText),
+				options.Channel(channel, "Канал обращения").Types(discordgo.ChannelTypeGuildText),
 			).Build(),
 			options.Sub(
 				info, "Информация об обращении",
-				options.Channel(channelID, "Канал обращения").Types(discordgo.ChannelTypeGuildText),
+				options.Channel(channel, "Канал обращения").Types(discordgo.ChannelTypeGuildText),
 			).Build(),
 			options.Sub(
 				list, "Список обращений",
@@ -91,22 +142,27 @@ func (*ReportCommand) Definition() *discordgo.ApplicationCommand {
 
 func (c *ReportCommand) Handle(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 
-	_, sub, err := options.ParseOptions(i)
+	opts, sub, err := options.ParseOptions(i)
 	if err != nil || len(sub) != 1 {
 		return discord.ErrBadRequest
 	}
 
 	switch sub[0] {
 	case add:
+		c.HandleAdd(ctx, s, i, opts)
 	case close:
+		c.HandleClose(ctx, s, i, opts)
 	case delete:
+		c.HandleDelete(ctx, s, i, opts)
 	case info:
+		c.HandleInfo(ctx, s, i, opts)
 	case list:
+		c.HandleList(ctx, s, i, opts)
 	case stats:
+		c.HandleStats(ctx, s, i, opts)
 	case reset:
+		c.HandleReset(ctx, s, i, opts)
 	}
 
 	return discord.ErrNotImplemented
 }
-
-func (c *ReportCommand) Scope() kit.Scope { return kit.ScopeGuild }
