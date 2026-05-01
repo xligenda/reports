@@ -292,7 +292,7 @@ func TestSearch_MultipleFilters(t *testing.T) {
 	filters := []repo.Filter{
 		repo.NewFilter("channel_id", repo.Equals, "channel123"),
 		repo.NewFilter("guild_id", repo.Equals, "guild456"),
-		repo.NewFilter("closed_at", "IS NULL", nil),
+		repo.NewFilter("closed_at", repo.IsNull, nil),
 	}
 
 	assert.NotNil(t, svc)
@@ -304,15 +304,15 @@ func TestSearch_TextSearchFilters(t *testing.T) {
 	svc := NewServiceWithRepository(myRepo, &hooks.NoOpHooks{})
 
 	filters := []repo.Filter{
-		repo.NewFilter("name", "LIKE", "%bug%"),
-		repo.NewFilter("topic", "LIKE", "%critical%"),
-		repo.NewFilter("note", "LIKE", "%urgent%"),
+		repo.NewFilter("name", repo.Like, "%bug%"),
+		repo.NewFilter("topic", repo.Like, "%critical%"),
+		repo.NewFilter("note", repo.Like, "%urgent%"),
 	}
 
 	assert.NotNil(t, svc)
 	assert.Len(t, filters, 3)
 	for _, f := range filters {
-		assert.Equal(t, "LIKE", f.Operator)
+		assert.Equal(t, repo.Like, f.Operator)
 	}
 }
 
@@ -333,14 +333,14 @@ func TestSearch_DateRangeFilters(t *testing.T) {
 
 func TestSearch_OpenReportsFilter(t *testing.T) {
 	// is_open=true -> closed_at IS NULL
-	openFilter := repo.NewFilter("closed_at", "IS NULL", nil)
+	openFilter := repo.NewFilter("closed_at", repo.IsNull, nil)
 	assert.Equal(t, "closed_at", openFilter.Field)
-	assert.Equal(t, "IS NULL", openFilter.Operator)
+	assert.Equal(t, repo.IsNull, openFilter.Operator)
 
 	// is_open=false -> closed_at IS NOT NULL
-	closedFilter := repo.NewFilter("closed_at", "IS NOT NULL", nil)
+	closedFilter := repo.NewFilter("closed_at", repo.IsNotNull, nil)
 	assert.Equal(t, "closed_at", closedFilter.Field)
-	assert.Equal(t, "IS NOT NULL", closedFilter.Operator)
+	assert.Equal(t, repo.IsNotNull, closedFilter.Operator)
 }
 
 func TestSearch_NoHooksTriggered(t *testing.T) {

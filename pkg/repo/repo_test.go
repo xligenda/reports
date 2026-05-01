@@ -60,7 +60,7 @@ func TestNewORFilter(t *testing.T) {
 		orFilter := NewORFilter(f1, f2)
 
 		assert.Equal(t, "custom_or", orFilter.Field)
-		assert.Equal(t, "OR", orFilter.Operator)
+		assert.Equal(t, Or, orFilter.Operator)
 		assert.NotNil(t, orFilter.Value)
 	})
 
@@ -69,12 +69,12 @@ func TestNewORFilter(t *testing.T) {
 		orFilter := NewORFilter(cond)
 
 		assert.Equal(t, "custom_or", orFilter.Field)
-		assert.Equal(t, "OR", orFilter.Operator)
+		assert.Equal(t, Or, orFilter.Operator)
 	})
 
 	t.Run("Empty OR filter", func(t *testing.T) {
 		orFilter := NewORFilter()
-		assert.Equal(t, "OR", orFilter.Operator)
+		assert.Equal(t, Or, orFilter.Operator)
 	})
 }
 
@@ -84,7 +84,7 @@ func TestNewRawFilter(t *testing.T) {
 	filter := NewRawFilter(sql)
 
 	assert.Equal(t, "raw_condition", filter.Field)
-	assert.Equal(t, "RAW", filter.Operator)
+	assert.Equal(t, Raw, filter.Operator)
 	assert.Equal(t, sql, filter.Value)
 }
 
@@ -115,7 +115,7 @@ func TestJSONBExistsFilter(t *testing.T) {
 	filter := JSONBExistsFilter("data", "key_name")
 
 	assert.Equal(t, "data", filter.Field)
-	assert.Equal(t, "RAW", filter.Operator)
+	assert.Equal(t, Raw, filter.Operator)
 	assert.Contains(t, filter.Value.(string), "?")
 }
 
@@ -124,7 +124,7 @@ func TestJSONBContainsFilter(t *testing.T) {
 	filter := JSONBContainsFilter("metadata", `{"type": "premium"}`)
 
 	assert.Equal(t, "metadata", filter.Field)
-	assert.Equal(t, "RAW", filter.Operator)
+	assert.Equal(t, Raw, filter.Operator)
 	assert.Contains(t, filter.JSONPath, "@>")
 }
 
@@ -199,7 +199,7 @@ func TestBuildWhereClause(t *testing.T) {
 	t.Run("Multiple filters AND", func(t *testing.T) {
 		filters := []Filter{
 			{Field: "name", Operator: Equals, Value: "John"},
-			{Field: "age", Operator: ">", Value: 18},
+			{Field: "age", Operator: GreaterThan, Value: 18},
 		}
 		clause, args := repo.buildWhereClause(filters)
 		assert.Contains(t, clause, " AND ")
@@ -207,7 +207,7 @@ func TestBuildWhereClause(t *testing.T) {
 	})
 
 	t.Run("With IN operator", func(t *testing.T) {
-		filters := []Filter{{Field: "status", Operator: "IN", Value: []any{"a", "b", "c"}}}
+		filters := []Filter{{Field: "status", Operator: In, Value: []any{"a", "b", "c"}}}
 		_, args := repo.buildWhereClause(filters)
 		assert.Equal(t, 3, len(args))
 	})
@@ -289,7 +289,7 @@ func TestBuildUpdateData(t *testing.T) {
 
 	assert.NotEmpty(t, fields)
 	assert.NotEmpty(t, values)
-	// ID should be excluded from update
+
 	for _, field := range fields {
 		assert.NotContains(t, field, "id")
 	}
@@ -323,8 +323,7 @@ func BenchmarkBuildSelectQuery(b *testing.B) {
 	filters := []Filter{{Field: "name", Operator: Equals, Value: "test"}}
 	opts := &QueryOptions{Limit: 10}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		repo.buildSelectQuery(filters, opts)
 	}
 }
@@ -337,8 +336,7 @@ func BenchmarkBuildWhereClause(b *testing.B) {
 		{Field: "age", Operator: ">", Value: 18},
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		repo.buildWhereClause(filters)
 	}
 }
@@ -348,8 +346,7 @@ func BenchmarkBuildInsertData(b *testing.B) {
 	repo := NewRepository[int, MockEntity](db, "test_table")
 	entity := MockEntity{ID: 1, Name: "John", Age: 25}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		repo.buildInsertData(entity)
 	}
 }
@@ -359,8 +356,7 @@ func BenchmarkBuildUpdateData(b *testing.B) {
 	repo := NewRepository[int, MockEntity](db, "test_table")
 	entity := MockEntity{ID: 1, Name: "John", Age: 25}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		repo.buildUpdateData(entity)
 	}
 }
