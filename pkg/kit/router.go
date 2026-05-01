@@ -3,6 +3,7 @@ package kit
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -167,6 +168,7 @@ func runHooks(ctx context.Context, s *discordgo.Session, i *discordgo.Interactio
 func (r *Router) RegisterCommands(guildIDs ...string) error {
 	global, guildCmds := r.splitCommands()
 
+	log.Printf("registering %d global commands, %d guild commands", len(global), len(guildCmds))
 	if err := r.bulkOverwrite("", global); err != nil {
 		return fmt.Errorf("failed to register global commands: %w", err)
 	}

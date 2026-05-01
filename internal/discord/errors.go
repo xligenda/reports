@@ -47,6 +47,7 @@ var (
 	ErrNotFound       = NewError("Resource not found")
 	ErrForbidden      = NewError("You don't have permission to do this")
 	ErrInternal       = NewError("An internal server error occurred")
+	ErrAlreadyExists  = NewError("Resource already exists")
 	ErrImmutable      = NewError("This resource cannot be modified")
 	ErrGRPCError      = func(err error) *InteractionError {
 		return NewError(fmt.Sprintf("API error: %v", err))

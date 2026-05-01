@@ -8,6 +8,7 @@ import (
 	"github.com/xligenda/reports/internal/discord"
 	"github.com/xligenda/reports/pkg/kit"
 	"github.com/xligenda/reports/pkg/kit/options"
+	"github.com/xligenda/reports/pkg/repo"
 )
 
 func (c *ReportCommand) HandleAdd(
@@ -21,9 +22,17 @@ func (c *ReportCommand) HandleAdd(
 		return err
 	}
 
+	if e, err := c.reports.Exists(ctx, []repo.Filter{
+		{Field: "id", Operator: "=", Value: i.ChannelID},
+	}); err != nil {
+		return discord.ErrInternal
+	} else if e {
+		return discord.ErrAlreadyExists
+	}
+
 	proofLink := opts.String(proofLink)
 	if opts.Has(proof) {
-		attachment, ok := resolveAttachment(i, opts.String(proof))
+		attachment, ok := resolveAttachment(i, opts.Attachment(proof))
 		if !ok {
 			return discord.ErrBadRequest
 		}
@@ -42,7 +51,7 @@ func (c *ReportCommand) HandleAdd(
 		opts.String(topic),
 		time.Now().Unix(),
 		isFilled(opts.String(note)),
-		isFilled(opts.String(proof)),
+		isFilled(proofLink),
 	)
 	if err != nil || rep == nil {
 		return discord.ErrInternal

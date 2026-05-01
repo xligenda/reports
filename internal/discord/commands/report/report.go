@@ -98,7 +98,7 @@ func (*ReportCommand) Definition() *discordgo.ApplicationCommand {
 		Options: []*discordgo.ApplicationCommandOption{
 			options.Sub(
 				add, "Передать обращение",
-				options.String(topic, "Тема").Choices("Обжалование", "Жалоба", "Другое").Required(),
+				options.String(topic, "Тема").LazyChoices("Обжалование", "Жалоба", "Другое").Required(),
 				options.String(note, "Заметка").MaxLength(800),
 				options.Attachment(proof, "Доказательство"),
 				options.String(proofLink, "Ссылка на доказательство").MaxLength(800),
@@ -120,7 +120,7 @@ func (*ReportCommand) Definition() *discordgo.ApplicationCommand {
 				list, "Список обращений",
 				options.Bool(guild, "Этот сервер"),
 				options.String(guilds, "Список серверов"),
-				options.String(topic, "Фильтрация по теме").Choices("Обжалование", "Жалоба", "Другое"),
+				options.String(topic, "Фильтрация по теме").LazyChoices("Обжалование", "Жалоба", "Другое"),
 				options.Int(page, "Номер страницы").Min(1),
 			).Build(),
 			options.Sub(
@@ -128,7 +128,7 @@ func (*ReportCommand) Definition() *discordgo.ApplicationCommand {
 				options.Bool(guild, "Этот сервер"),
 				options.String(guilds, "Список серверов"),
 				options.User(user, "Пользователь"),
-				options.String(topic, "Тема").Choices("Обжалование", "Жалоба", "Другое"),
+				options.String(topic, "Тема").LazyChoices("Обжалование", "Жалоба", "Другое"),
 			).Build(),
 			options.Sub(
 				reset, "Сбросить обращения",
@@ -149,19 +149,19 @@ func (c *ReportCommand) Handle(ctx context.Context, s *discordgo.Session, i *dis
 
 	switch sub[0] {
 	case add:
-		c.HandleAdd(ctx, s, i, opts)
+		return c.HandleAdd(ctx, s, i, opts)
 	case close:
-		c.HandleClose(ctx, s, i, opts)
+		return c.HandleClose(ctx, s, i, opts)
 	case delete:
-		c.HandleDelete(ctx, s, i, opts)
+		return c.HandleDelete(ctx, s, i, opts)
 	case info:
-		c.HandleInfo(ctx, s, i, opts)
+		return c.HandleInfo(ctx, s, i, opts)
 	case list:
-		c.HandleList(ctx, s, i, opts)
+		return c.HandleList(ctx, s, i, opts)
 	case stats:
-		c.HandleStats(ctx, s, i, opts)
+		return c.HandleStats(ctx, s, i, opts)
 	case reset:
-		c.HandleReset(ctx, s, i, opts)
+		return c.HandleReset(ctx, s, i, opts)
 	}
 
 	return discord.ErrNotImplemented

@@ -106,3 +106,13 @@ func (m OptionsMap) Has(name string) bool {
 func (m OptionsMap) Raw(name string) *discordgo.ApplicationCommandInteractionDataOption {
 	return m[name]
 }
+
+func (m OptionsMap) Attachment(key string) string {
+	opt, ok := m[key]
+	if !ok {
+		return ""
+	}
+
+	id, _ := opt.Value.(string)
+	return id
+}

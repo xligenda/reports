@@ -164,25 +164,25 @@ func TestDefaultHooksBeforeCreate(t *testing.T) {
 	myHooks := NewDefaultHooks()
 
 	t.Run("valid report", func(t *testing.T) {
-		report := &structs.Report{ChannelID: "ch1", GuildID: "guild1", IssuerID: "usr1"}
+		report := &structs.Report{Channel: "ch1", Guild: "guild1", Issuer: "usr1"}
 		err := myHooks.BeforeCreate(context.Background(), report)
 		assert.NoError(t, err)
 	})
 
 	t.Run("empty channel ID", func(t *testing.T) {
-		report := &structs.Report{GuildID: "guild1", IssuerID: "usr1"}
+		report := &structs.Report{Guild: "guild1", Issuer: "usr1"}
 		err := myHooks.BeforeCreate(context.Background(), report)
 		assert.Error(t, err)
 	})
 
 	t.Run("empty guild ID", func(t *testing.T) {
-		report := &structs.Report{ChannelID: "ch1", IssuerID: "usr1"}
+		report := &structs.Report{Channel: "ch1", Issuer: "usr1"}
 		err := myHooks.BeforeCreate(context.Background(), report)
 		assert.Error(t, err)
 	})
 
 	t.Run("empty issuer ID", func(t *testing.T) {
-		report := &structs.Report{ChannelID: "ch1", GuildID: "guild1"}
+		report := &structs.Report{Channel: "ch1", Guild: "guild1"}
 		err := myHooks.BeforeCreate(context.Background(), report)
 		assert.Error(t, err)
 	})
@@ -216,7 +216,7 @@ func TestDefaultHooksBeforeUpdate(t *testing.T) {
 	myHooks := NewDefaultHooks()
 
 	t.Run("valid report", func(t *testing.T) {
-		report := &structs.Report{ChannelID: "ch1"}
+		report := &structs.Report{Channel: "ch1"}
 		err := myHooks.BeforeUpdate(context.Background(), report)
 		assert.NoError(t, err)
 	})

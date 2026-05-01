@@ -46,10 +46,10 @@ func (o *StringOption) Required() *StringOption       { o.o.Required = true; ret
 func (o *StringOption) Autocomplete() *StringOption   { o.o.Autocomplete = true; return o }
 func (o *StringOption) MinLength(n int) *StringOption { o.o.MinLength = &n; return o }
 func (o *StringOption) MaxLength(n int) *StringOption { o.o.MaxLength = n; return o }
-func (o *StringOption) Choices(pairs ...string) *StringOption {
-	for i := 0; i+1 < len(pairs); i += 2 {
+func (o *StringOption) LazyChoices(vals ...string) *StringOption {
+	for _, v := range vals {
 		o.o.Choices = append(o.o.Choices, &discordgo.ApplicationCommandOptionChoice{
-			Name: pairs[i], Value: pairs[i+1],
+			Name: v, Value: v,
 		})
 	}
 	return o
@@ -64,10 +64,10 @@ func (o *IntOption) Required() *IntOption     { o.o.Required = true; return o }
 func (o *IntOption) Autocomplete() *IntOption { o.o.Autocomplete = true; return o }
 func (o *IntOption) Min(v float64) *IntOption { o.o.MinValue = &v; return o }
 func (o *IntOption) Max(v float64) *IntOption { o.o.MaxValue = v; return o }
-func (o *IntOption) Choices(pairs ...any) *IntOption {
-	for i := 0; i+1 < len(pairs); i += 2 {
+func (o *IntOption) LazyChoices(vals ...int) *IntOption {
+	for _, v := range vals {
 		o.o.Choices = append(o.o.Choices, &discordgo.ApplicationCommandOptionChoice{
-			Name: fmt.Sprint(pairs[i]), Value: pairs[i+1],
+			Name: fmt.Sprint(v), Value: fmt.Sprint(v),
 		})
 	}
 	return o

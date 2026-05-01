@@ -32,9 +32,9 @@ func (s *Service) Create(
 	}
 
 	report := &structs.Report{
-		ChannelID: channelID,
-		GuildID:   guildID,
-		IssuerID:  issuerID,
+		Channel:   channelID,
+		Guild:     guildID,
+		Issuer:    issuerID,
 		Topic:     topic,
 		CreatedAt: createdAt,
 		Note:      note,

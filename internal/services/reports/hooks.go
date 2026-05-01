@@ -21,14 +21,14 @@ func (h *DefaultHooks) BeforeCreate(ctx context.Context, entity any) error {
 		return nil
 	}
 
-	if report.ChannelID == "" {
-		return fmt.Errorf("report channel ID cannot be empty")
+	if report.Channel == "" {
+		return fmt.Errorf("report channel cannot be empty")
 	}
-	if report.GuildID == "" {
-		return fmt.Errorf("report guild ID cannot be empty")
+	if report.Guild == "" {
+		return fmt.Errorf("report guild cannot be empty")
 	}
-	if report.IssuerID == "" {
-		return fmt.Errorf("report issuer ID cannot be empty")
+	if report.Issuer == "" {
+		return fmt.Errorf("report issuer cannot be empty")
 	}
 
 	return nil

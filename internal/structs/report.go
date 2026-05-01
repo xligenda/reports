@@ -1,9 +1,9 @@
 package structs
 
 type Report struct {
-	ChannelID string  `db:"channel"`
-	GuildID   string  `db:"guild"`
-	IssuerID  string  `db:"issuer"`
+	Channel   string  `db:"id"`
+	Guild     string  `db:"guild"`
+	Issuer    string  `db:"issuer"`
 	Topic     string  `db:"topic"`
 	Note      *string `db:"note"`
 	Proof     *string `db:"proof"`
@@ -13,5 +13,5 @@ type Report struct {
 }
 
 func (r Report) GetID() string {
-	return r.ChannelID
+	return r.Channel
 }

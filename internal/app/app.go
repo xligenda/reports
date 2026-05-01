@@ -2,7 +2,9 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"runtime/debug"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/jmoiron/sqlx"
@@ -33,7 +35,11 @@ func New() (*App, error) {
 		return nil, err
 	}
 	a.session = session
-	a.handler = kit.NewRouter(a.session)
+	handler := kit.NewRouter(a.session)
+	handler.OnError = func(s *discordgo.Session, i *discordgo.InteractionCreate, err error) {
+		log.Printf("Error handling command: %v\n%s", err, debug.Stack())
+		kit.DefaultErrorHandler(s, i, err)
+	}
 
 	storage, err := minio.NewMinioClient(
 		MustEnv("MINIO_ENDPOINT"),
@@ -45,8 +51,18 @@ func New() (*App, error) {
 		return nil, err
 	}
 
-	guildID := MustEnv("DISCORD_GUILD_ID")
-	handler := kit.NewRouter(a.session)
+	storageCtx := context.Background()
+	for _, name := range []minio.BucketType{
+		minio.BucketAudio, minio.BucketImage, minio.BucketVideo, minio.BucketOthers,
+	} {
+		if e, err := storage.BucketExists(storageCtx, string(name)); !e {
+			if storage.CreateBucket(storageCtx, string(name), ""); err != nil {
+				return nil, err
+			}
+			fmt.Printf("Created bucket: %s\n", name)
+		}
+
+	}
 
 	permsClient, err := perms.NewClient(MustEnv("PERMS_SERVICE"))
 	if err != nil {
@@ -59,7 +75,7 @@ func New() (*App, error) {
 		storage,
 	))
 
-	handler.RegisterCommands(guildID)
+	a.handler = handler
 
 	return a, nil
 }
@@ -68,6 +84,10 @@ func (a *App) Run() error {
 	if err := a.session.Open(); err != nil {
 		return err
 	}
+
+	guildID := MustEnv("DISCORD_GUILD_ID")
+	a.handler.RegisterCommands(guildID)
+	log.Println("bot commands registered")
 
 	a.handler.Init()
 
