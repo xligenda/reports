@@ -131,6 +131,14 @@ func buildCloseEmbed(closedAt int64) *discordgo.MessageEmbed {
 	}
 }
 
+func buildDeleteEmbed(deletedAt int64) *discordgo.MessageEmbed {
+	return &discordgo.MessageEmbed{
+		Color:       10038562,
+		Title:       "Обращение успешно удалено из БД",
+		Description: fmt.Sprintf("Информация об обращении **полностью удалена** из БД, он не будет учитвываться в подсчётах и показываться списках.\nВремя удаления: <t:%d:f>", deletedAt),
+	}
+}
+
 func isFilled(s string) *string {
 	if s == "" {
 		return nil
