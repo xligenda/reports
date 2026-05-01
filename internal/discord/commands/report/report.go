@@ -69,17 +69,20 @@ type ReportCommand struct {
 	permsProvider PermsProvider
 	reports       ReportService
 	storage       Storage
+	servers       Servers
 }
 
 func NewReportCommand(
 	permsProvider PermsProvider,
 	reportService ReportService,
 	storage Storage,
+	servers Servers,
 ) *ReportCommand {
 	return &ReportCommand{
 		permsProvider: permsProvider,
 		reports:       reportService,
 		storage:       storage,
+		servers:       servers,
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/jmoiron/sqlx"
+	"github.com/xligenda/reports/internal/config"
 	"github.com/xligenda/reports/internal/discord"
 	"github.com/xligenda/reports/internal/discord/commands"
 	"github.com/xligenda/reports/internal/discord/commands/report"
@@ -23,6 +24,10 @@ type App struct {
 	handler    *kit.Router
 	cancelSync context.CancelFunc
 }
+
+const (
+	appEtcFolder = "/etc/reports/"
+)
 
 func New() (*App, error) {
 	a := &App{}
@@ -72,10 +77,13 @@ func New() (*App, error) {
 	handler.OnError = discord.ErrorHandler
 	handler.OnRecover = discord.RecoverHandler(uptimeCommand.IncrementRecoveries)
 
+	serversConf := config.LoadServers(EnvString("SERVERS_CONFIG_PATH", appEtcFolder+"servers.yaml"))
+
 	handler.AddCommand(report.NewReportCommand(
 		permsClient,
 		reports.NewService(a.DB, &hooks.NoOpHooks{}),
 		storage,
+		serversConf,
 	))
 
 	a.handler = handler
@@ -90,7 +98,7 @@ func (a *App) Run() error {
 
 	guildID := EnvString("DISCORD_GUILD_ID", "")
 	a.handler.RegisterCommands(guildID)
-	log.Println("bot commands registered")
+	log.Println("Bot commands registered")
 
 	a.handler.Init()
 

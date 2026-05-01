@@ -139,14 +139,25 @@ func (r *GenericRepository[I, T]) buildCondition(filter Filter, argIndex int) (s
 		}
 
 	case In:
-		if values, ok := filter.Value.([]any); ok {
-			placeholders := make([]string, len(values))
-			for i := range values {
-				placeholders[i] = fmt.Sprintf("$%d", argIndex+i)
+		var values []any
+
+		switch v := filter.Value.(type) {
+		case []string:
+			for _, s := range v {
+				values = append(values, s)
 			}
-			condition := fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholders, ", "))
-			return condition, values
+		case []any:
+			values = v
+		default:
+			return "", nil
 		}
+
+		placeholders := make([]string, len(values))
+		for i := range values {
+			placeholders[i] = fmt.Sprintf("$%d", argIndex+i)
+		}
+		condition := fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholders, ", "))
+		return condition, values
 
 	case NotIn:
 		if values, ok := filter.Value.([]any); ok {

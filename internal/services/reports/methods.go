@@ -16,13 +16,13 @@ func (s *Service) Create(
 	note, proof *string,
 ) (*structs.Report, error) {
 	if channelID == "" {
-		return nil, fmt.Errorf("channel_id is required")
+		return nil, fmt.Errorf("channel is required")
 	}
 	if guildID == "" {
-		return nil, fmt.Errorf("guild_id is required")
+		return nil, fmt.Errorf("guild is required")
 	}
 	if issuerID == "" {
-		return nil, fmt.Errorf("issuer_id is required")
+		return nil, fmt.Errorf("issuer is required")
 	}
 	if topic == "" {
 		return nil, fmt.Errorf("topic is required")

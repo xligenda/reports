@@ -4,8 +4,12 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/xligenda/reports/internal/config"
 	"github.com/xligenda/reports/internal/discord"
 	"github.com/xligenda/reports/internal/services/perms"
 	"github.com/xligenda/reports/internal/structs"
@@ -17,6 +21,10 @@ import (
 const (
 	pageSize = 25
 )
+
+type Servers interface {
+	FindByID(id config.Index) *config.Server
+}
 
 func (c *ReportCommand) HandleList(
 	ctx context.Context,
@@ -33,7 +41,7 @@ func (c *ReportCommand) HandleList(
 		return discord.ErrForbidden
 	}
 
-	filters, areFiltersUsed, err := c.buildListFilters(i, opts)
+	filters, areFiltersUsed, err := buildListFilters(i, opts, c.servers)
 	if err != nil {
 		return discord.ErrBadRequest
 	}
@@ -70,15 +78,16 @@ func (c *ReportCommand) HandleList(
 	})
 }
 
-func (c *ReportCommand) buildListFilters(
+func buildListFilters(
 	i *discordgo.InteractionCreate,
 	opts options.OptionsMap,
+	servers Servers,
 ) ([]repo.Filter, bool, error) {
 	var areFiltersUsed bool
 
-	closedOp := repo.Equals
+	closedOp := repo.IsNull
 	if opts.Bool(closed) {
-		closedOp = repo.NotEquals
+		closedOp = repo.IsNotNull
 		areFiltersUsed = true
 	}
 
@@ -87,7 +96,7 @@ func (c *ReportCommand) buildListFilters(
 	}
 
 	if opts.Bool(guild) {
-		filters = append(filters, repo.NewFilter("guild_id", repo.Equals, i.GuildID))
+		filters = append(filters, repo.NewFilter("guild", repo.Equals, i.GuildID))
 		areFiltersUsed = true
 	}
 
@@ -96,7 +105,26 @@ func (c *ReportCommand) buildListFilters(
 		areFiltersUsed = true
 	}
 
-	// todo: filter by guilds
+	if opts.String(guilds) != "" {
+
+		targets, err := parseServers(opts.String(guilds))
+		if err != nil {
+			return nil, false, fmt.Errorf("invalid guilds format: %w", err)
+		}
+
+		var guildIDs []string
+		for _, server := range targets {
+			if serverData := servers.FindByID(config.Index(server)); serverData != nil {
+				guildIDs = append(guildIDs, serverData.Guild)
+			}
+		}
+
+		if len(guildIDs) > 0 {
+			filters = append(filters, repo.NewFilter("guild", repo.In, guildIDs))
+			areFiltersUsed = true
+		}
+	}
+
 	return filters, areFiltersUsed, nil
 }
 
@@ -156,4 +184,61 @@ func buildPageButtons(
 	}
 
 	return buttons
+}
+
+func parseServers(input string) ([]int, error) {
+	input = strings.ReplaceAll(input, " ", "")
+
+	if input == "" {
+		return []int{}, nil
+	}
+
+	parts := strings.Split(input, ",")
+	result := make([]int, 0)
+
+	for _, part := range parts {
+		if strings.Contains(part, "-") {
+			rangeParts := strings.Split(part, "-")
+			if len(rangeParts) != 2 {
+				return nil, fmt.Errorf("invalid range format: %s", part)
+			}
+
+			start, err := strconv.Atoi(rangeParts[0])
+			if err != nil {
+				return nil, fmt.Errorf("invalid number in range start: %s", rangeParts[0])
+			}
+
+			end, err := strconv.Atoi(rangeParts[1])
+			if err != nil {
+				return nil, fmt.Errorf("invalid number in range end: %s", rangeParts[1])
+			}
+
+			if start > end {
+				return nil, fmt.Errorf("invalid range: start %d is greater than end %d", start, end)
+			}
+
+			for i := start; i <= end; i++ {
+				result = append(result, i)
+			}
+		} else {
+			num, err := strconv.Atoi(part)
+			if err != nil {
+				return nil, fmt.Errorf("invalid number: %s", part)
+			}
+			result = append(result, num)
+		}
+	}
+
+	sort.Ints(result)
+
+	unique := make([]int, 0)
+	seen := make(map[int]bool)
+	for _, num := range result {
+		if !seen[num] {
+			unique = append(unique, num)
+			seen[num] = true
+		}
+	}
+
+	return unique, nil
 }
