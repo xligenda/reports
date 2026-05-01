@@ -9,13 +9,31 @@ type QueryOptions struct {
 type Filter struct {
 	Field string
 	// =, !=, >, <, >=, <=, LIKE, IN, NOT IN, OR, IS NULL, IS NOT NULL
-	Operator string
+	Operator Operator
 	Value    any
 	// "field": "data->>'key'" for JSON fields
 	JSONPath string
 }
 
-func NewFilter(field, operator string, value any) Filter {
+type Operator string
+
+const (
+	Equals        Operator = "="
+	NotEquals     Operator = "!="
+	GreaterThan   Operator = ">"
+	LessThan      Operator = "<"
+	GreaterEquals Operator = ">="
+	LessEquals    Operator = "<="
+	Like          Operator = "LIKE"
+	In            Operator = "IN"
+	NotIn         Operator = "NOT IN"
+	Or            Operator = "OR"
+	IsNull        Operator = "IS NULL"
+	IsNotNull     Operator = "IS NOT NULL"
+	Raw           Operator = "RAW"
+)
+
+func NewFilter(field string, operator Operator, value any) Filter {
 	return Filter{
 		Field:    field,
 		Operator: operator,

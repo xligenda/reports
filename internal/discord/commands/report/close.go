@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	fieldStack = "commands.report.close/field"
+	fieldStackClose = "commands.report.close/field"
 )
 
 func (c *ReportCommand) HandleClose(
@@ -28,12 +28,12 @@ func (c *ReportCommand) HandleClose(
 		return err
 	}
 
-	if err := c.checkPermission(ctx, issuer, perms.ViewExtended, fieldStack); err != nil {
+	if err := c.checkPermission(ctx, issuer, perms.CloseReports, fieldStackClose); err != nil {
 		return err
 	}
 
-	channelID := resolveChannelID(opts, i.ChannelID)
-	report, err := c.reports.FindByID(ctx, channelID)
+	channel := resolveChannelID(opts, i.ChannelID)
+	report, err := c.reports.FindByID(ctx, channel)
 	if err != nil {
 		return discord.ErrInternal
 	}
@@ -46,7 +46,7 @@ func (c *ReportCommand) HandleClose(
 	}
 
 	closedAt := time.Now().Unix()
-	_, err = c.reports.Close(ctx, channelID, issuer, closedAt)
+	_, err = c.reports.Close(ctx, report.GetID(), issuer, closedAt)
 	if err != nil {
 		return discord.ErrInternal
 	}

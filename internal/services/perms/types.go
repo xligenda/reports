@@ -7,6 +7,10 @@ func (p Permission) String() string {
 }
 
 const (
-	None         Permission = ""
-	ViewExtended Permission = "view_extended"
+	None                Permission = ""
+	SaveReports         Permission = "save_reports"
+	ViewReports         Permission = "view_reports"
+	CloseReports        Permission = "close_reports"
+	ViewReportsExtended Permission = "view_reports_extended"
+	DeleteReports       Permission = "delete_reports"
 )

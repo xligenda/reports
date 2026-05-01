@@ -60,7 +60,7 @@ func (r *GenericRepository[I, T]) FindOne(ctx context.Context, filters []Filter)
 
 // FindByID retrieves a record by ID, returning ErrNotFound if it does not exist.
 func (r *GenericRepository[I, T]) FindByID(ctx context.Context, id I) (*T, error) {
-	filters := []Filter{{Field: "id", Operator: "=", Value: id}}
+	filters := []Filter{{Field: "id", Operator: Equals, Value: id}}
 
 	entity, err := r.FindOne(ctx, filters)
 	if err != nil {
@@ -228,7 +228,7 @@ func (r *GenericRepository[I, T]) DeleteMany(ctx context.Context, filters []Filt
 
 // FindByIDWithTx retrieves a record by ID within a transaction.
 func (r *GenericRepository[I, T]) FindByIDWithTx(ctx context.Context, tx *sqlx.Tx, id I) (*T, error) {
-	filters := []Filter{{Field: "id", Operator: "=", Value: id}}
+	filters := []Filter{{Field: "id", Operator: Equals, Value: id}}
 	opts := &QueryOptions{Limit: 1}
 	query, args := r.buildSelectQuery(filters, opts)
 
@@ -307,7 +307,7 @@ func (r *GenericRepository[I, T]) Exists(ctx context.Context, filters []Filter) 
 
 // ExistsWithID reports whether a record with the given ID exists.
 func (r *GenericRepository[I, T]) ExistsWithID(ctx context.Context, id I) (bool, error) {
-	filters := []Filter{{Field: "id", Operator: "=", Value: id}}
+	filters := []Filter{{Field: "id", Operator: Equals, Value: id}}
 	return r.Exists(ctx, filters)
 }
 

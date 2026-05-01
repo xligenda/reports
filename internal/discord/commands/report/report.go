@@ -85,7 +85,15 @@ func NewReportCommand(
 
 func (c *ReportCommand) Hooks() []kit.Hook {
 	return []kit.Hook{
-		hooks.NewPermsHook(c.permsProvider, perms.None, nil),
+		hooks.NewPermsHook(c.permsProvider, perms.None, map[string]perms.Permission{
+			add:    perms.SaveReports,
+			close:  perms.CloseReports,
+			delete: perms.DeleteReports,
+			info:   perms.ViewReports,
+			list:   perms.ViewReports,
+			stats:  perms.ViewReportsExtended,
+			reset:  perms.DeleteReports,
+		}),
 	}
 }
 
@@ -147,6 +155,7 @@ func (c *ReportCommand) Handle(ctx context.Context, s *discordgo.Session, i *dis
 		return discord.ErrBadRequest
 	}
 
+	kit.Defer(s, i, true)
 	switch sub[0] {
 	case add:
 		return c.HandleAdd(ctx, s, i, opts)

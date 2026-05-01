@@ -8,6 +8,7 @@ import (
 	"github.com/xligenda/reports/internal/discord"
 	"github.com/xligenda/reports/pkg/kit"
 	"github.com/xligenda/reports/pkg/kit/options"
+	"github.com/xligenda/reports/pkg/repo"
 )
 
 func (c *ReportCommand) HandleDelete(
@@ -17,16 +18,18 @@ func (c *ReportCommand) HandleDelete(
 	opts options.OptionsMap,
 ) error {
 
-	channelID := resolveChannelID(opts, i.ChannelID)
-	report, err := c.reports.FindByID(ctx, channelID)
+	channel := resolveChannelID(opts, i.ChannelID)
+	exists, err := c.reports.Exists(ctx, []repo.Filter{
+		repo.NewFilter("id", repo.Equals, channel),
+	})
 	if err != nil {
 		return discord.ErrInternal
 	}
-	if report == nil {
+	if !exists {
 		return discord.ErrNotFound
 	}
 
-	err = c.reports.Delete(ctx, report.GetID())
+	err = c.reports.Delete(ctx, channel)
 	if err != nil {
 		return discord.ErrInternal
 	}

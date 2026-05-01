@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"sync"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/google/uuid"
@@ -15,6 +17,7 @@ import (
 	"github.com/xligenda/reports/internal/structs"
 	"github.com/xligenda/reports/pkg/kit/options"
 	buckets "github.com/xligenda/reports/pkg/minio"
+	"github.com/xligenda/reports/pkg/repo"
 )
 
 // resolveProofLink downloads the attachment from Discord, uploads it to object storage,
@@ -139,9 +142,172 @@ func buildDeleteEmbed(deletedAt int64) *discordgo.MessageEmbed {
 	}
 }
 
+func buildResetResponse(deletedCount, total int) *discordgo.InteractionResponseData {
+	return &discordgo.InteractionResponseData{
+		Content: fmt.Sprintf("Успешно удалено %d/%d обращений", deletedCount, total),
+	}
+}
+
+// buildInfoButtons checks which actions the issuer is permitted to perform and
+// returns the corresponding button components.
+func (c *ReportCommand) buildInfoButtons(
+	ctx context.Context,
+	issuer string,
+	report *structs.Report,
+) ([]discordgo.MessageComponent, error) {
+	var buttons []discordgo.MessageComponent
+
+	canClose, err := c.permsProvider.Check(ctx, issuer, perms.CloseReports, fieldStackInfo)
+	if err != nil {
+		return nil, err
+	}
+	if canClose {
+		buttons = append(buttons, &discordgo.Button{
+			Label:    "Закрыть",
+			Style:    discordgo.PrimaryButton,
+			CustomID: fmt.Sprintf("report:close:%s", report.Channel),
+			Disabled: report.ClosedAt != nil,
+		})
+	}
+
+	canDelete, err := c.permsProvider.Check(ctx, issuer, perms.DeleteReports, fieldStackInfo)
+	if err != nil {
+		return nil, err
+	}
+	if canDelete {
+		buttons = append(buttons, &discordgo.Button{
+			Label:    "Удалить",
+			Style:    discordgo.DangerButton,
+			CustomID: fmt.Sprintf("report:delete:%s", report.Channel),
+		})
+	}
+
+	if report.Proof != nil {
+		if _, rawURL := buildProofLink(report.Proof); rawURL != "" {
+			buttons = append(buttons, &discordgo.Button{
+				Label: "Доказательство",
+				Style: discordgo.LinkButton,
+				URL:   rawURL,
+			})
+		}
+	}
+
+	return buttons, nil
+}
+
+// buildInfoResponse assembles the full InteractionResponseData for the info embed.
+func buildInfoResponse(report *structs.Report, buttons []discordgo.MessageComponent) *discordgo.InteractionResponseData {
+	proofDisplay := "-"
+	if report.Proof != nil {
+		proofDisplay, _ = buildProofLink(report.Proof)
+	}
+
+	description := fmt.Sprintf(
+		"<#%s>\nСоздатель: <@%s>\nТема: %s\nПримечание: %s\nДоказательство: %s\nВремя создания: <t:%d:f>",
+		report.Channel,
+		report.Issuer,
+		report.Topic,
+		derefOrDash(report.Note),
+		proofDisplay,
+		report.CreatedAt,
+	)
+
+	if report.ClosedAt != nil {
+		description += fmt.Sprintf("\nВремя закрытия: <t:%d:f>", *report.ClosedAt) // ← bug fix: was passing pointer, not value
+	}
+
+	data := &discordgo.InteractionResponseData{
+		Embeds: []*discordgo.MessageEmbed{{
+			Color:       7419530,
+			Title:       "Информация об обращении",
+			Description: description,
+		}},
+	}
+
+	if len(buttons) > 0 {
+		data.Components = []discordgo.MessageComponent{
+			discordgo.ActionsRow{Components: buttons},
+		}
+	}
+
+	return data
+}
+
+// buildResetFilters constructs the filter slice from the provided options.
+// guild=true  → restrict to the current guild.
+// closed=true → only closed reports; false → only open reports.
+func buildResetFilters(opts options.OptionsMap, guildID string) []repo.Filter {
+	filters := make([]repo.Filter, 0, 2)
+
+	if opts.Bool(guild) {
+		filters = append(filters, repo.NewFilter("guild", repo.Equals, guildID))
+	}
+
+	if opts.Bool(closed) {
+		filters = append(filters, repo.NewFilter("closed_at", repo.IsNotNull, nil))
+	} else {
+		filters = append(filters, repo.NewFilter("closed_at", repo.IsNull, nil))
+	}
+
+	return filters
+}
+
+// deleteReportsConcurrently deletes every report in the list in parallel and
+// returns the number of successfully deleted reports.
+func (c *ReportCommand) deleteReportsConcurrently(ctx context.Context, reports []*structs.Report) int {
+	var (
+		wg         sync.WaitGroup
+		mu         sync.Mutex
+		errCounter int
+	)
+
+	for _, r := range reports {
+		wg.Add(1)
+		go func(id string) {
+			defer wg.Done()
+			if err := c.reports.Delete(ctx, id); err != nil {
+				mu.Lock()
+				errCounter++
+				mu.Unlock()
+			}
+		}(r.GetID())
+	}
+
+	wg.Wait()
+
+	return len(reports) - errCounter
+}
+
+// buildProofLink converts a raw proof URL into a markdown display string and
+// returns the original URL for use as a button link.
+// Returns ("-", "") on nil input, or an error placeholder with no URL on parse failure.
+func buildProofLink(proof *string) (display, rawURL string) {
+	if proof == nil {
+		return "-", ""
+	}
+
+	parsedURL, err := url.Parse(*proof)
+	if err != nil || parsedURL.Host == "" {
+		return "*ошибка сохранения доказательства*", ""
+	}
+
+	return fmt.Sprintf("[%s](<%s>)", parsedURL.Host, *proof), *proof
+}
+
+func derefOrDash(s *string) string {
+	if s == nil {
+		return "-"
+	}
+	return *s
+}
+
 func isFilled(s string) *string {
 	if s == "" {
 		return nil
 	}
+	return &s
+}
+
+func ptr[T any](s T) *T {
 	return &s
 }

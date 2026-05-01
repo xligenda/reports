@@ -274,14 +274,14 @@ func TestSearch_SingleChannelFilter(t *testing.T) {
 	svc := NewServiceWithRepository(myRepo, &hooks.NoOpHooks{})
 
 	filters := []repo.Filter{
-		repo.NewFilter("channel_id", "=", "channel123"),
+		repo.NewFilter("channel_id", repo.Equals, "channel123"),
 	}
 
 	assert.NotNil(t, svc)
 	// Verify single filter can be applied
 	assert.Len(t, filters, 1)
 	assert.Equal(t, "channel_id", filters[0].Field)
-	assert.Equal(t, "=", filters[0].Operator)
+	assert.Equal(t, repo.Equals, filters[0].Operator)
 	assert.Equal(t, "channel123", filters[0].Value)
 }
 
@@ -290,8 +290,8 @@ func TestSearch_MultipleFilters(t *testing.T) {
 	svc := NewServiceWithRepository(myRepo, &hooks.NoOpHooks{})
 
 	filters := []repo.Filter{
-		repo.NewFilter("channel_id", "=", "channel123"),
-		repo.NewFilter("guild_id", "=", "guild456"),
+		repo.NewFilter("channel_id", repo.Equals, "channel123"),
+		repo.NewFilter("guild_id", repo.Equals, "guild456"),
 		repo.NewFilter("closed_at", "IS NULL", nil),
 	}
 
@@ -361,7 +361,7 @@ func TestSearch_NoHooksTriggered(t *testing.T) {
 
 	// Search should not trigger any hooks (it's read-only)
 	filters := []repo.Filter{
-		repo.NewFilter("channel_id", "=", "channel123"),
+		repo.NewFilter("channel_id", repo.Equals, "channel123"),
 	}
 	// Just calling Search should not trigger hooks
 	assert.False(t, hooksCalled)

@@ -23,7 +23,7 @@ func (c *ReportCommand) HandleAdd(
 	}
 
 	if e, err := c.reports.Exists(ctx, []repo.Filter{
-		{Field: "id", Operator: "=", Value: i.ChannelID},
+		{Field: "id", Operator: repo.Equals, Value: i.ChannelID},
 	}); err != nil {
 		return discord.ErrInternal
 	} else if e {

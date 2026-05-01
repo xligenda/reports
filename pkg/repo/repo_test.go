@@ -34,10 +34,10 @@ func TestNewFilter(t *testing.T) {
 	tests := []struct {
 		name     string
 		field    string
-		operator string
+		operator Operator
 		value    any
 	}{
-		{"Equality", "name", "=", "John"},
+		{"Equality", "name", Equals, "John"},
 		{"Greater than", "age", ">", 18},
 		{"LIKE", "email", "LIKE", "%@example.com"},
 	}
@@ -55,8 +55,8 @@ func TestNewFilter(t *testing.T) {
 // TestNewORFilter tests OR filter creation
 func TestNewORFilter(t *testing.T) {
 	t.Run("With Filter structs", func(t *testing.T) {
-		f1 := NewFilter("status", "=", "active")
-		f2 := NewFilter("priority", "=", "high")
+		f1 := NewFilter("status", Equals, "active")
+		f2 := NewFilter("priority", Equals, "high")
 		orFilter := NewORFilter(f1, f2)
 
 		assert.Equal(t, "custom_or", orFilter.Field)
@@ -65,7 +65,7 @@ func TestNewORFilter(t *testing.T) {
 	})
 
 	t.Run("With map conditions", func(t *testing.T) {
-		cond := map[string]any{"field": "status", "operator": "=", "value": "active"}
+		cond := map[string]any{"field": "status", "operator": Equals, "value": "active"}
 		orFilter := NewORFilter(cond)
 
 		assert.Equal(t, "custom_or", orFilter.Field)
@@ -102,11 +102,11 @@ func TestQueryOptions(t *testing.T) {
 
 // TestJSONBFilter tests JSONB filter helper
 func TestJSONBFilter(t *testing.T) {
-	filter := JSONBFilter("metadata", "status", "=", "active")
+	filter := JSONBFilter("metadata", "status", Equals, "active")
 
 	assert.Equal(t, "metadata", filter.Field)
 	assert.Equal(t, "metadata->>'status'", filter.JSONPath)
-	assert.Equal(t, "=", filter.Operator)
+	assert.Equal(t, Equals, filter.Operator)
 	assert.Equal(t, "active", filter.Value)
 }
 
@@ -140,32 +140,32 @@ func TestBuildCondition(t *testing.T) {
 	}{
 		{
 			name:   "Equality",
-			filter: Filter{Field: "name", Operator: "=", Value: "John"},
+			filter: Filter{Field: "name", Operator: Equals, Value: "John"},
 			expect: `"name" = $1`,
 		},
 		{
 			name:   "IS NULL",
-			filter: Filter{Field: "deleted_at", Operator: "IS NULL"},
+			filter: Filter{Field: "deleted_at", Operator: IsNull},
 			expect: `"deleted_at" IS NULL`,
 		},
 		{
 			name:   "LIKE",
-			filter: Filter{Field: "name", Operator: "LIKE", Value: "%test%"},
+			filter: Filter{Field: "name", Operator: Like, Value: "%test%"},
 			expect: `"name" LIKE $1`,
 		},
 		{
 			name:   "IN operator",
-			filter: Filter{Field: "status", Operator: "IN", Value: []any{"a", "b"}},
+			filter: Filter{Field: "status", Operator: In, Value: []any{"a", "b"}},
 			expect: `"status" IN ($1, $2)`,
 		},
 		{
 			name:   "NOT IN operator",
-			filter: Filter{Field: "status", Operator: "NOT IN", Value: []any{"x"}},
+			filter: Filter{Field: "status", Operator: NotIn, Value: []any{"x"}},
 			expect: `"status" NOT IN ($1)`,
 		},
 		{
 			name:   "RAW operator",
-			filter: Filter{Operator: "RAW", Value: "custom sql"},
+			filter: Filter{Operator: Raw, Value: "custom sql"},
 			expect: "custom sql",
 		},
 	}
@@ -190,7 +190,7 @@ func TestBuildWhereClause(t *testing.T) {
 	})
 
 	t.Run("Single filter", func(t *testing.T) {
-		filters := []Filter{{Field: "name", Operator: "=", Value: "John"}}
+		filters := []Filter{{Field: "name", Operator: Equals, Value: "John"}}
 		clause, args := repo.buildWhereClause(filters)
 		assert.Contains(t, clause, " WHERE ")
 		assert.Equal(t, []any{"John"}, args)
@@ -198,7 +198,7 @@ func TestBuildWhereClause(t *testing.T) {
 
 	t.Run("Multiple filters AND", func(t *testing.T) {
 		filters := []Filter{
-			{Field: "name", Operator: "=", Value: "John"},
+			{Field: "name", Operator: Equals, Value: "John"},
 			{Field: "age", Operator: ">", Value: 18},
 		}
 		clause, args := repo.buildWhereClause(filters)
@@ -224,7 +224,7 @@ func TestBuildSelectQuery(t *testing.T) {
 	})
 
 	t.Run("With filters", func(t *testing.T) {
-		filters := []Filter{{Field: "name", Operator: "=", Value: "John"}}
+		filters := []Filter{{Field: "name", Operator: Equals, Value: "John"}}
 		query, _ := repo.buildSelectQuery(filters, nil)
 		assert.Contains(t, query, "WHERE")
 	})
@@ -250,7 +250,7 @@ func TestBuildSelectQuery(t *testing.T) {
 	})
 
 	t.Run("Full query", func(t *testing.T) {
-		filters := []Filter{{Field: "status", Operator: "=", Value: "active"}}
+		filters := []Filter{{Field: "status", Operator: Equals, Value: "active"}}
 		opts := &QueryOptions{
 			OrderBy: OrderBy{{Column: "id", Direction: "DESC"}},
 			Limit:   20,
@@ -300,7 +300,7 @@ func TestFieldEscaping(t *testing.T) {
 	db := &sqlx.DB{}
 	repo := NewRepository[int, MockEntity](db, "test_table")
 
-	filter := Filter{Field: "user_name", Operator: "=", Value: "test"}
+	filter := Filter{Field: "user_name", Operator: Equals, Value: "test"}
 	cond, _ := repo.buildCondition(filter, 1)
 
 	assert.Contains(t, cond, `"user_name"`)
@@ -320,7 +320,7 @@ func TestSpecialTableNames(t *testing.T) {
 func BenchmarkBuildSelectQuery(b *testing.B) {
 	db := &sqlx.DB{}
 	repo := NewRepository[int, MockEntity](db, "test_table")
-	filters := []Filter{{Field: "name", Operator: "=", Value: "test"}}
+	filters := []Filter{{Field: "name", Operator: Equals, Value: "test"}}
 	opts := &QueryOptions{Limit: 10}
 
 	b.ResetTimer()
@@ -333,7 +333,7 @@ func BenchmarkBuildWhereClause(b *testing.B) {
 	db := &sqlx.DB{}
 	repo := NewRepository[int, MockEntity](db, "test_table")
 	filters := []Filter{
-		{Field: "name", Operator: "=", Value: "John"},
+		{Field: "name", Operator: Equals, Value: "John"},
 		{Field: "age", Operator: ">", Value: 18},
 	}
 

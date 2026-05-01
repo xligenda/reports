@@ -99,8 +99,8 @@ func (r *GenericRepository[I, T]) buildCondition(filter Filter, argIndex int) (s
 		field = filter.JSONPath
 	}
 
-	switch strings.ToUpper(filter.Operator) {
-	case "OR":
+	switch filter.Operator {
+	case Or:
 		if orData, ok := filter.Value.(map[string]any); ok {
 			if conditions, exists := orData["conditions"].([]map[string]any); exists {
 				var orParts []string
@@ -130,7 +130,7 @@ func (r *GenericRepository[I, T]) buildCondition(filter Filter, argIndex int) (s
 			}
 		}
 
-	case "RAW":
+	case Raw:
 		if rawSQL, ok := filter.Value.(string); ok {
 			return rawSQL, nil
 		}
@@ -138,7 +138,7 @@ func (r *GenericRepository[I, T]) buildCondition(filter Filter, argIndex int) (s
 			return filter.JSONPath, nil
 		}
 
-	case "IN":
+	case In:
 		if values, ok := filter.Value.([]any); ok {
 			placeholders := make([]string, len(values))
 			for i := range values {
@@ -148,7 +148,7 @@ func (r *GenericRepository[I, T]) buildCondition(filter Filter, argIndex int) (s
 			return condition, values
 		}
 
-	case "NOT IN":
+	case NotIn:
 		if values, ok := filter.Value.([]any); ok {
 			placeholders := make([]string, len(values))
 			for i := range values {
@@ -158,7 +158,7 @@ func (r *GenericRepository[I, T]) buildCondition(filter Filter, argIndex int) (s
 			return condition, values
 		}
 
-	case "IS NULL":
+	case IsNull:
 		return fmt.Sprintf("%s IS NULL", field), nil
 
 	case "IS NOT NULL":
@@ -427,7 +427,7 @@ func setFieldValue(field reflect.Value, value any) error {
 	return nil
 }
 
-func JSONBFilter(field string, key string, operator string, value any) Filter {
+func JSONBFilter(field string, key string, operator Operator, value any) Filter {
 	return Filter{
 		Field:    field,
 		JSONPath: fmt.Sprintf("%s->>'%s'", field, key),
@@ -439,7 +439,7 @@ func JSONBFilter(field string, key string, operator string, value any) Filter {
 func JSONBExistsFilter(field string, key string) Filter {
 	return Filter{
 		Field:    field,
-		Operator: "RAW",
+		Operator: Raw,
 		Value:    fmt.Sprintf("%s ? '%s'", field, key),
 	}
 }
@@ -448,7 +448,7 @@ func JSONBContainsFilter(field string, jsonValue string) Filter {
 	return Filter{
 		Field:    field,
 		JSONPath: fmt.Sprintf("%s @> '%s'::jsonb", field, jsonValue),
-		Operator: "RAW",
+		Operator: Raw,
 		Value:    nil,
 	}
 }
