@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"runtime/debug"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/jmoiron/sqlx"
+	"github.com/xligenda/reports/internal/discord"
 	"github.com/xligenda/reports/internal/discord/commands/report"
 	"github.com/xligenda/reports/internal/services/hooks"
 	"github.com/xligenda/reports/internal/services/perms"
@@ -36,10 +36,9 @@ func New() (*App, error) {
 	}
 	a.session = session
 	handler := kit.NewRouter(a.session)
-	handler.OnError = func(s *discordgo.Session, i *discordgo.InteractionCreate, err error) {
-		log.Printf("Error handling command: %v\n%s", err, debug.Stack())
-		kit.DefaultErrorHandler(s, i, err)
-	}
+
+	handler.OnError = discord.ErrorHandler
+	handler.OnRecover = discord.RecoverHandler
 
 	storage, err := minio.NewMinioClient(
 		MustEnv("MINIO_ENDPOINT"),

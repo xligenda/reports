@@ -2,6 +2,8 @@ package discord
 
 import (
 	"fmt"
+	"log"
+	"runtime/debug"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/xligenda/reports/pkg/kit"
@@ -59,3 +61,33 @@ var (
 		return NewError(fmt.Sprintf("Invalid value for %s", field))
 	}
 )
+
+func ErrorHandler(s *discordgo.Session, i *discordgo.InteractionCreate, e error) {
+	err, ok := e.(*InteractionError)
+	if !ok {
+		log.Printf("Unexpected error type: %T\n%s", e, debug.Stack())
+		kit.DefaultErrorHandler(s, i, e)
+		return
+	}
+
+	content := fmt.Sprintf("Произошла ошибка: %s", err.Error())
+	if err == ErrInternal {
+		hash := errorHash(e)
+		log.Printf("Internal error [%s]: %v\n%s", hash, e, debug.Stack())
+		content = fmt.Sprintf("Произошла внутренняя ошибка\n||%s||", hash)
+	}
+
+	err.WithRespond(&discordgo.InteractionResponseData{
+		Content: content,
+		Flags:   discordgo.MessageFlagsEphemeral,
+	})
+
+	if respondErr := err.Respond(s, i); respondErr != nil {
+		hash := errorHash(respondErr)
+		log.Printf("Failed to respond to interaction error [%s]: %v\n%s", hash, respondErr, debug.Stack())
+		kit.RespondOrEdit(s, i, &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("%s\n||%s||", content, hash),
+			Flags:   discordgo.MessageFlagsEphemeral,
+		})
+	}
+}
