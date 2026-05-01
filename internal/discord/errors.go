@@ -44,28 +44,28 @@ func NewError(message string) *InteractionError {
 }
 
 var (
-	ErrNotImplemented = NewError("This command is not implemented yet")
-	ErrBadRequest     = NewError("Invalid request format")
-	ErrNotFound       = NewError("Resource not found")
-	ErrForbidden      = NewError("You don't have permission to do this")
-	ErrInternal       = NewError("An internal server error occurred")
-	ErrAlreadyExists  = NewError("Resource already exists")
-	ErrImmutable      = NewError("This resource cannot be modified")
+	ErrNotImplemented = NewError("Эта команда ещё не реализована")
+	ErrBadRequest     = NewError("Указаны неверные аргументы")
+	ErrNotFound       = NewError("Ресурс не найден")
+	ErrForbidden      = NewError("У вас нет прав для выполнения этого действия")
+	ErrInternal       = NewError("Произошла внутренняя ошибка сервера")
+	ErrAlreadyExists  = NewError("Ресурс уже существует")
+	ErrImmutable      = NewError("Этот ресурс нельзя изменить")
 	ErrGRPCError      = func(err error) *InteractionError {
-		return NewError(fmt.Sprintf("API error: %v", err))
+		return NewError(fmt.Sprintf("Ошибка API: %v", err))
 	}
 	ErrStorageError = func(err error) *InteractionError {
-		return NewError(fmt.Sprintf("Storage error: %v", err))
+		return NewError(fmt.Sprintf("Ошибка хранилища: %v", err))
 	}
 	ErrInvalidInput = func(field string) *InteractionError {
-		return NewError(fmt.Sprintf("Invalid value for %s", field))
+		return NewError(fmt.Sprintf("Недопустимое значение для %s", field))
 	}
 )
 
 func ErrorHandler(s *discordgo.Session, i *discordgo.InteractionCreate, e error) {
 	err, ok := e.(*InteractionError)
 	if !ok {
-		log.Printf("Unexpected error type: %T\n%s", e, debug.Stack())
+		log.Printf("Unexpected error type: %T\n%s\n%s", e, debug.Stack(), e.Error())
 		kit.DefaultErrorHandler(s, i, e)
 		return
 	}

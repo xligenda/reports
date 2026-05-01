@@ -85,11 +85,11 @@ func (r *Router) handleCommand(ctx context.Context, s *discordgo.Session, i *dis
 			continue
 		}
 		if err := runHooks(ctx, s, i, cmd.Hooks()); err != nil {
-			r.OnError(s, i, errHook(err))
+			r.OnError(s, i, err)
 			return
 		}
 		if err := cmd.Handle(ctx, s, i); err != nil {
-			r.OnError(s, i, errCommand(name, err))
+			r.OnError(s, i, err)
 		}
 		return
 	}
