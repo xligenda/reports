@@ -14,6 +14,14 @@ func MustEnv(key string) string {
 	return v
 }
 
+func EnvString(key, defaultValue string) string {
+	v := os.Getenv(key)
+	if v == "" {
+		return defaultValue
+	}
+	return v
+}
+
 func MustEnvInt(key string) int {
 	v := MustEnv(key)
 	i, err := strconv.Atoi(v)

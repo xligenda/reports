@@ -8,6 +8,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/jmoiron/sqlx"
 	"github.com/xligenda/reports/internal/discord"
+	"github.com/xligenda/reports/internal/discord/commands"
 	"github.com/xligenda/reports/internal/discord/commands/report"
 	"github.com/xligenda/reports/internal/services/hooks"
 	"github.com/xligenda/reports/internal/services/perms"
@@ -37,9 +38,6 @@ func New() (*App, error) {
 	a.session = session
 	handler := kit.NewRouter(a.session)
 
-	handler.OnError = discord.ErrorHandler
-	handler.OnRecover = discord.RecoverHandler
-
 	storage, err := minio.NewMinioClient(
 		MustEnv("MINIO_ENDPOINT"),
 		MustEnv("MINIO_ACCESS_KEY"),
@@ -68,6 +66,12 @@ func New() (*App, error) {
 		return nil, err
 	}
 
+	uptimeCommand := commands.NewUptimeCommand(EnvString("CONTACT", "https://github.com/xligenda/reports/issues"))
+	handler.AddCommand(uptimeCommand)
+
+	handler.OnError = discord.ErrorHandler
+	handler.OnRecover = discord.RecoverHandler(uptimeCommand.IncrementRecoveries)
+
 	handler.AddCommand(report.NewReportCommand(
 		permsClient,
 		reports.NewService(a.DB, &hooks.NoOpHooks{}),
@@ -84,7 +88,7 @@ func (a *App) Run() error {
 		return err
 	}
 
-	guildID := MustEnv("DISCORD_GUILD_ID")
+	guildID := EnvString("DISCORD_GUILD_ID", "")
 	a.handler.RegisterCommands(guildID)
 	log.Println("bot commands registered")
 
