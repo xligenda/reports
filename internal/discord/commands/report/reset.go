@@ -25,7 +25,7 @@ func (c *ReportCommand) HandleReset(
 
 	return kit.RespondOrEdit(s, i,
 		buildResetResponse(
-			c.deleteReportsConcurrently(ctx, reportList),
+			deleteReportsConcurrently(ctx, c.reports, reportList),
 			len(reportList),
 		),
 	)

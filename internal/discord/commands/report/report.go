@@ -38,6 +38,12 @@ var (
 	page      optName = "page"
 )
 
+var (
+	topicOptions []string = []string{
+		"Обжалование", "Жалоба", "Другое",
+	}
+)
+
 type PermsProvider interface {
 	Check(ctx context.Context, id string, action perms.Permission, stack string) (bool, error)
 }
@@ -109,7 +115,7 @@ func (*ReportCommand) Definition() *discordgo.ApplicationCommand {
 		Options: []*discordgo.ApplicationCommandOption{
 			options.Sub(
 				add, "Передать обращение",
-				options.String(topic, "Тема").LazyChoices("Обжалование", "Жалоба", "Другое").Required(),
+				options.String(topic, "Тема").LazyChoices(topicOptions...).Required(),
 				options.String(note, "Заметка").MaxLength(800),
 				options.Attachment(proof, "Доказательство"),
 				options.String(proofLink, "Ссылка на доказательство").MaxLength(800),
