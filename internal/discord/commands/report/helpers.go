@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -38,16 +40,31 @@ func resolveProofLink(
 		return fallback, nil
 	}
 
-	body, err := fetchAttachmentBody(attachment.URL)
+	sourceURL := attachment.URL
+	if sourceURL == "" {
+		sourceURL = attachment.ProxyURL
+	}
+
+	body, err := fetchAttachmentBody(sourceURL)
+	if err != nil && attachment.ProxyURL != "" && sourceURL != attachment.ProxyURL {
+		body, err = fetchAttachmentBody(attachment.ProxyURL)
+	}
 	if err != nil {
 		return "", err
 	}
 
+	filename := path.Base(attachment.Filename)
+	if filename == "" || filename == "." || filename == "/" {
+		filename = uuid.New().String()
+	}
+	filename = url.PathEscape(filename)
+
 	reader := bytes.NewReader(body)
+	objectName := fmt.Sprintf("%s/%s", uuid.New().String(), filename)
 	upd, err := storage.PutObject(
 		ctx,
 		string(buckets.BucketProof),
-		fmt.Sprintf("%s/%s", uuid.New().String(), attachment.Filename),
+		objectName,
 		reader,
 		int64(reader.Len()),
 		minio.PutObjectOptions{
@@ -58,7 +75,18 @@ func resolveProofLink(
 		return "", err
 	}
 
-	return upd.Location, nil
+	proofURL := upd.Location
+	if proofURL == "" {
+		proofURL = buildProofURL(objectName)
+	}
+
+	return proofURL, nil
+}
+
+func buildProofURL(objectName string) string {
+	base := os.Getenv("PROOF_BASE_URL")
+	base = strings.TrimRight(base, "/")
+	return fmt.Sprintf("%s/%s", base, objectName)
 }
 
 func fetchAttachmentBody(url string) ([]byte, error) {
@@ -512,13 +540,6 @@ func derefOrDash(s *string) string {
 		return "-"
 	}
 	return *s
-}
-
-func isFilled(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
 }
 
 type StatsPeriod struct {

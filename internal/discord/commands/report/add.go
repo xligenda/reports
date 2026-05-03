@@ -43,6 +43,17 @@ func (c *ReportCommand) HandleAdd(
 		}
 	}
 
+	noteStr := opts.String(note)
+	var notePtr *string
+	if noteStr != "" {
+		notePtr = &noteStr
+	}
+
+	var proofPtr *string
+	if proofLink != "" {
+		proofPtr = &proofLink
+	}
+
 	rep, err := c.reports.Create(
 		ctx,
 		i.ChannelID,
@@ -50,8 +61,8 @@ func (c *ReportCommand) HandleAdd(
 		issuer,
 		opts.String(topic),
 		time.Now().Unix(),
-		isFilled(opts.String(note)),
-		isFilled(proofLink),
+		notePtr,
+		proofPtr,
 	)
 	if err != nil || rep == nil {
 		return discord.ErrInternal
