@@ -55,7 +55,7 @@ func New() (*App, error) {
 
 	storageCtx := context.Background()
 	for _, name := range []minio.BucketType{
-		minio.BucketAudio, minio.BucketImage, minio.BucketVideo, minio.BucketOthers,
+		minio.BucketProof,
 	} {
 		if e, err := storage.BucketExists(storageCtx, string(name)); !e {
 			if storage.CreateBucket(storageCtx, string(name), ""); err != nil {

@@ -46,7 +46,7 @@ func resolveProofLink(
 	reader := bytes.NewReader(body)
 	upd, err := storage.PutObject(
 		ctx,
-		string(buckets.BucketTypeFromFileName(attachment.Filename)),
+		string(buckets.BucketProof),
 		fmt.Sprintf("%s/%s", uuid.New().String(), attachment.Filename),
 		reader,
 		int64(reader.Len()),

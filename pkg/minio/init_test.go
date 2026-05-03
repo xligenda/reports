@@ -90,7 +90,7 @@ func TestInitMinio_Success(t *testing.T) {
 		UseSSL:       false,
 		BucketPrefix: "",
 		Region:       "us-east-1",
-		BucketTypes:  []BucketType{BucketImage},
+		BucketTypes:  []BucketType{BucketProof},
 	}
 
 	// This will fail with connection error, but should initialize the manager
@@ -98,7 +98,7 @@ func TestInitMinio_Success(t *testing.T) {
 	// We might get an error due to no connection, but manager should be created
 	if manager != nil {
 		assert.NotNil(t, manager)
-		assert.Equal(t, "reports", manager.GetBucketName(BucketImage))
+		assert.Equal(t, "reports", manager.GetBucketName(BucketProof))
 	}
 }
 
@@ -112,14 +112,13 @@ func TestInitMinio_WithPrefix(t *testing.T) {
 		UseSSL:       false,
 		BucketPrefix: "test-",
 		Region:       "us-east-1",
-		BucketTypes:  []BucketType{BucketImage, BucketAudio},
+		BucketTypes:  []BucketType{BucketProof},
 	}
 
 	manager, _ := InitMinio(ctx, opts)
 	if manager != nil {
 		assert.NotNil(t, manager)
-		assert.Equal(t, "test-image", manager.GetBucketName(BucketImage))
-		assert.Equal(t, "test-audio", manager.GetBucketName(BucketAudio))
+		assert.Equal(t, "test-proofs", manager.GetBucketName(BucketProof))
 	}
 }
 
@@ -144,7 +143,7 @@ func TestInitMinioFromEnv_DefaultEnv(t *testing.T) {
 	manager, _ := InitMinioFromEnv(ctx)
 	if manager != nil {
 		assert.NotNil(t, manager)
-		assert.Equal(t, "video", manager.GetBucketName(BucketVideo))
+		assert.Equal(t, "proof", manager.GetBucketName(BucketProof))
 	}
 }
 
@@ -159,7 +158,7 @@ func TestInitMinioFromEnv_CustomEnv(t *testing.T) {
 	manager, _ := InitMinioFromEnv(ctx)
 	if manager != nil {
 		assert.NotNil(t, manager)
-		assert.Equal(t, "custom-video", manager.GetBucketName(BucketVideo))
+		assert.Equal(t, "custom-proofs", manager.GetBucketName(BucketProof))
 	}
 }
 
@@ -216,10 +215,8 @@ func TestInitOptions_BucketTypes(t *testing.T) {
 	opts := NewInitOptions()
 
 	assert.NotEmpty(t, opts.BucketTypes)
-	assert.Contains(t, opts.BucketTypes, BucketVideo)
-	assert.Contains(t, opts.BucketTypes, BucketImage)
-	assert.Contains(t, opts.BucketTypes, BucketAudio)
-	assert.Contains(t, opts.BucketTypes, BucketOthers)
+	assert.Contains(t, opts.BucketTypes, BucketProof)
+
 }
 
 // TestInitMinio_InvalidEndpoint tests Minio initialization with invalid endpoint
@@ -231,7 +228,7 @@ func TestInitMinio_InvalidEndpoint(t *testing.T) {
 		SecretKey:   "secret",
 		UseSSL:      false,
 		Region:      "us-east-1",
-		BucketTypes: []BucketType{BucketImage},
+		BucketTypes: []BucketType{BucketProof},
 	}
 
 	_, err := InitMinio(ctx, opts)
