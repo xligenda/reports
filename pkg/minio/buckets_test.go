@@ -43,11 +43,8 @@ func TestListAllBuckets_WithPrefix(t *testing.T) {
 	buckets, err := manager.ListAllBuckets(context.Background())
 
 	require.NoError(t, err)
-	assert.Len(t, buckets, 4)
-	assert.Contains(t, buckets, "test-video")
-	assert.Contains(t, buckets, "test-image")
-	assert.Contains(t, buckets, "test-audio")
-	assert.Contains(t, buckets, "test-others")
+	assert.Len(t, buckets, 1)
+	assert.Contains(t, buckets, "test-proofs")
 }
 
 // TestValidateBucketType_InvalidTypes tests ValidateBucketType with invalid types

@@ -17,6 +17,9 @@ WORKDIR /app
 
 COPY --from=builder /app/bot .
 
-RUN chmod +x ./bot
+RUN chmod +x ./bot && \
+    addgroup -S bot && adduser -S -G bot bot && \
+    chown -R bot:bot /app
+USER bot
 
 CMD ["./bot"]
